@@ -7,12 +7,15 @@ vendor/
 *.log
 v1_answer.json
 
-# 本地环境脚本与工具元数据（含凭据或本机配置，禁止入库）
+# 本地环境与一键启动脚本（含凭据路径或本机配置，禁止入库）
 .env
 .env.*
 !.env.example
 setenv.ps1
 setenv.sh
+start.bat
+start.ps1
+start.sh
 .stfolder/
 _backup/
 .DS_Store
