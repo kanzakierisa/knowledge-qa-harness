@@ -1,0 +1,19 @@
+# 编译与依赖产物
+*.exe
+*.test
+vendor/
+
+# 运行日志与临时输出
+*.log
+v1_answer.json
+
+# 本地环境脚本与工具元数据（含凭据或本机配置，禁止入库）
+.env
+.env.*
+!.env.example
+setenv.ps1
+setenv.sh
+.stfolder/
+_backup/
+.DS_Store
+Thumbs.db

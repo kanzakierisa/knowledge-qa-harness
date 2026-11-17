@@ -1,0 +1,80 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"knowledge-qa/eval"
+	"knowledge-qa/store"
+)
+
+// evalHTTPHandler 把内部问答函数注入评测器，不通过 HTTP 自调用 /api/ask。
+type evalHTTPHandler struct {
+	evaluator *eval.Evaluator
+	parent    *Handler
+}
+
+func newEvalHTTPHandler(h *Handler) *evalHTTPHandler {
+	ask := func(question string) (eval.Answer, error) {
+		resp, top, err := h.answerQuestion(question, false)
+		ids := make([]int64, 0, len(top))
+		for _, chunk := range top {
+			ids = append(ids, chunk.Chunk.ID)
+		}
+		return eval.Answer{
+			Text:              resp.Answer,
+			Refused:           resp.Refused,
+			Retried:           resp.Retried,
+			RetrievedChunkIDs: ids,
+			CitationLimit:     len(top),
+		}, err
+	}
+	return &evalHTTPHandler{evaluator: eval.New(h.Store, ask), parent: h}
+}
+
+// Run 执行全部金标题并返回四个指标与逐题明细；并发批次直接返回 409。
+func (h *evalHTTPHandler) Run(c *gin.Context) {
+	if !h.parent.evalMu.TryLock() {
+		c.JSON(http.StatusConflict, gin.H{"error": eval.ErrConcurrent.Error()})
+		return
+	}
+	defer h.parent.evalMu.Unlock()
+	report, err := h.evaluator.Run()
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, eval.ErrConcurrent) {
+			status = http.StatusConflict
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, report)
+}
+
+type markRequest struct {
+	RunID  int64 `json:"run_id" binding:"required"`
+	Usable *bool `json:"usable" binding:"required"`
+}
+
+// Mark 只接收人工可用性结论，不在评测代码里自动判断 usable。
+func (h *evalHTTPHandler) Mark(c *gin.Context) {
+	var req markRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.RunID <= 0 || req.Usable == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "run_id 必须为正整数，usable 必须为 true 或 false"})
+		return
+	}
+	result, err := h.evaluator.Mark(req.RunID, *req.Usable)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrEvalRunNotFound) {
+			status = http.StatusNotFound
+		} else if errors.Is(err, store.ErrEvalRunRefused) {
+			status = http.StatusBadRequest
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}

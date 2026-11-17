@@ -1,0 +1,1057 @@
+{
+  "hit_rate": 1,
+  "citation_rate": 1,
+  "usable_rate": null,
+  "refusal_rate": 1,
+  "detail": [
+    {
+      "run_id": 286,
+      "question_id": 1,
+      "question": "在 Gin 中，如何让服务只监听本机回环地址的 8080 端口？",
+      "gold_answer": "调用 r.Run(\"127.0.0.1:8080\")。",
+      "should_refuse": false,
+      "gold_chunk_id": 325,
+      "retrieved_chunk_ids": [
+        325,
+        323,
+        299,
+        303,
+        345
+      ],
+      "answer": "可以显式指定地址为 `127.0.0.1:8080`，例如 `r.Run(\"127.0.0.1:8080\")`，这样只监听本机回环 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 287,
+      "question_id": 2,
+      "question": "在 v1 := r.Group(\"/v1\") 组内注册 v1.GET(\"/users\", listUsersV1) 后，最终请求路径是什么？",
+      "gold_answer": "最终请求路径是 /v1/users，即组前缀 /v1 加组内路径 /users。",
+      "should_refuse": false,
+      "gold_chunk_id": 337,
+      "retrieved_chunk_ids": [
+        337,
+        335,
+        313,
+        312,
+        330
+      ],
+      "answer": "最终路径是组前缀加组内路径，即 `/v1/users`。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 288,
+      "question_id": 3,
+      "question": "Gin 的 * 通配符参数能匹配哪些路径内容，在位置上有什么限制？",
+      "gold_answer": "* 通配符匹配剩余所有路径，可以包含斜杠，并且只能出现在路径末尾。",
+      "should_refuse": false,
+      "gold_chunk_id": 332,
+      "retrieved_chunk_ids": [
+        332,
+        338,
+        330,
+        331,
+        333
+      ],
+      "answer": "`*` 通配符匹配剩余所有路径（可以包含斜杠）[1]。`*` 通配符只能出现在路径末尾[1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 289,
+      "question_id": 4,
+      "question": "在读取查询参数时，c.GetQuery 如何帮助区分“没传”和“传了空值”？",
+      "gold_answer": "c.GetQuery 除返回参数值外，还多返回一个 bool 表示参数是否存在，因此可以区分未传参和传了空值。",
+      "should_refuse": false,
+      "gold_chunk_id": 320,
+      "retrieved_chunk_ids": [
+        320,
+        317,
+        319,
+        334,
+        318
+      ],
+      "answer": "`c.GetQuery` 多返回一个 bool 表示参数是否存在，区分“没传”和“传了空值” [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 290,
+      "question_id": 5,
+      "question": "Gin 中带 Should 前缀的绑定方法与不带 Should 的 c.BindJSON 在出错时有何区别？为什么生产代码建议使用 Should 系列？",
+      "gold_answer": "Should 系列出错时只返回 error，由开发者决定响应；c.BindJSON 等会自动写入 400 响应并调用 Abort，但处理函数仍会继续执行，容易造成二次写响应，因此生产代码建议使用 Should 系列。",
+      "should_refuse": false,
+      "gold_chunk_id": 291,
+      "retrieved_chunk_ids": [
+        291,
+        289,
+        292,
+        309,
+        290
+      ],
+      "answer": "带 Should 前缀的方法（ShouldBindJSON、ShouldBindQuery、ShouldBind）出错时只返回 error，由你自己决定响应 [1]。不带 Should 的 `c.BindJSON` 等方法出错时会自动写 400 响应并调用 Abort，处理函数仍会继续执行，容易造成二次写响应 [1]。生产代码一律建议用 Should 系列 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 291,
+      "question_id": 6,
+      "question": "在自定义 Gin 中间件中，c.Next() 前后的代码分别属于什么阶段？调用 c.Abort() 有什么效果？",
+      "gold_answer": "c.Next() 之前是请求阶段，之后是响应阶段；调用 c.Abort() 会阻止处理链继续执行，使后续业务处理函数不会执行。",
+      "should_refuse": false,
+      "gold_chunk_id": 311,
+      "retrieved_chunk_ids": [
+        311,
+        304,
+        310,
+        312,
+        314
+      ],
+      "answer": "`c.Next()` 之前是\"请求阶段\"，之后是\"响应阶段\" [1]。在中间件里调用 `c.Abort()` 可以阻止链继续往下走（处理函数不会执行），常用于鉴权失败 [1]。`c.Abort()` 阻止后续处理函数执行，但当前函数内的代码仍会继续，所以 Abort 之后通常紧跟 return [2]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 292,
+      "question_id": 7,
+      "question": "Windows 的 Go 安装器会自动如何配置 PATH 环境变量？",
+      "gold_answer": "安装器会自动把 Go 的 bin 目录加入 PATH 环境变量。",
+      "should_refuse": false,
+      "gold_chunk_id": 400,
+      "retrieved_chunk_ids": [
+        400,
+        403,
+        404,
+        401,
+        379
+      ],
+      "answer": "Windows 用户下载 .msi 安装程序，双击按向导完成即可，默认安装到 `C:\\Program Files\\Go`，安装器会自动把 Go 的 bin 目录加入 PATH 环境变量。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 293,
+      "question_id": 8,
+      "question": "在 for i := 0; i \u003c 5; i++ 循环中执行 defer fmt.Println(i)，会按什么顺序输出？",
+      "gold_answer": "依次输出 4、3、2、1、0，因为多个 defer 按后进先出顺序执行。",
+      "should_refuse": false,
+      "gold_chunk_id": 359,
+      "retrieved_chunk_ids": [
+        359,
+        392,
+        386,
+        451,
+        391
+      ],
+      "answer": "按后进先出（栈）的顺序执行，输出 4 3 2 1 0 [1]。多个 defer 按后进先出顺序执行 [3][4]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 294,
+      "question_id": 9,
+      "question": "在 Go 语言中，函数可变参数在类型前加什么符号？在函数内部它是什么类型，调用时如何把切片展开传入？",
+      "gold_answer": "在类型前加 ...，函数内部它是一个切片；调用时使用 切片...（如 sum(nums...)）展开传入。",
+      "should_refuse": false,
+      "gold_chunk_id": 384,
+      "retrieved_chunk_ids": [
+        384,
+        462,
+        461,
+        381,
+        387
+      ],
+      "answer": "参数类型前加 `...` 表示可变参数 [1]。函数内它是一个切片 [1]。调用时可以用 `切片...` 展开传入 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 295,
+      "question_id": 10,
+      "question": "一个接口值在什么条件下才是 nil？",
+      "gold_answer": "只有接口值的具体类型和值都为 nil 时，该接口值才是 nil。",
+      "should_refuse": false,
+      "gold_chunk_id": 407,
+      "retrieved_chunk_ids": [
+        407,
+        460,
+        408,
+        409,
+        368
+      ],
+      "answer": "一个接口值只有类型和值都为 nil 时才是 nil [1]。如果接口里存的是一个 nil 指针的具体类型，接口本身不是 nil，调用方法时接收者会收到 nil 指针，方法内部需要自行判空 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 296,
+      "question_id": 11,
+      "question": "main 函数返回时，尚未运行完的 goroutine 会怎样？",
+      "gold_answer": "所有 goroutine 都会被强制结束，无论是否已经运行完。",
+      "should_refuse": false,
+      "gold_chunk_id": 391,
+      "retrieved_chunk_ids": [
+        391,
+        452,
+        390,
+        392,
+        395
+      ],
+      "answer": "main 函数返回时所有 goroutine 都会被强制结束，不管有没有跑完。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 297,
+      "question_id": 12,
+      "question": "当 select 等待的多个 channel 操作同时就绪时，会选择执行哪一个？",
+      "gold_answer": "会从同时就绪的操作中随机选择一个执行。",
+      "should_refuse": false,
+      "gold_chunk_id": 349,
+      "retrieved_chunk_ids": [
+        349,
+        454,
+        354,
+        453,
+        351
+      ],
+      "answer": "当 select 等待的多个 channel 操作同时就绪时，会随机选一个执行 [1][2]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 298,
+      "question_id": 13,
+      "question": "将结构不确定的 JSON 解析到 map[string]interface{} 时，数字会变成什么类型，之后需要如何处理？",
+      "gold_answer": "数字会变成 float64，之后需要自行进行类型断言。",
+      "should_refuse": false,
+      "gold_chunk_id": 415,
+      "retrieved_chunk_ids": [
+        415,
+        413,
+        294,
+        333,
+        412
+      ],
+      "answer": "数字会变成 float64 [1]。需要自己类型断言 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 299,
+      "question_id": 14,
+      "question": "调用 http.ListenAndServe 时，第二个参数传 nil 表示什么？",
+      "gold_answer": "表示使用默认的 DefaultServeMux。",
+      "should_refuse": false,
+      "gold_chunk_id": 396,
+      "retrieved_chunk_ids": [
+        396,
+        407,
+        325,
+        424,
+        320
+      ],
+      "answer": "第二个参数传 nil 表示使用默认的 DefaultServeMux。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 300,
+      "question_id": 15,
+      "question": "context.WithCancel 返回的 cancel 函数有什么作用，为什么使用后必须调用它？",
+      "gold_answer": "调用 cancel 会通知所有监听者退出；使用后必须调用它以防止泄漏。",
+      "should_refuse": false,
+      "gold_chunk_id": 353,
+      "retrieved_chunk_ids": [
+        353,
+        355,
+        352,
+        354,
+        304
+      ],
+      "answer": "调用 cancel() 通知所有监听者退出 [1]。使用后必须调用 cancel 防止泄漏 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 301,
+      "question_id": 16,
+      "question": "如何只运行 TestAdd 中名为“正数”的子测试？",
+      "gold_answer": "执行命令 go test -run TestAdd/正数。",
+      "should_refuse": false,
+      "gold_chunk_id": 442,
+      "retrieved_chunk_ids": [
+        442,
+        441,
+        440,
+        443,
+        426
+      ],
+      "answer": "只跑某个子测试：`go test -run TestAdd/正数`。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 302,
+      "question_id": 17,
+      "question": "为什么判断错误链上是否有某个哨兵错误时应使用 errors.Is，而不要直接使用 ==？",
+      "gold_answer": "因为错误可能被包装过，errors.Is 能判断错误链，直接使用 == 可能无法识别被包装的哨兵错误。",
+      "should_refuse": false,
+      "gold_chunk_id": 370,
+      "retrieved_chunk_ids": [
+        370,
+        366,
+        300,
+        371,
+        368
+      ],
+      "answer": "判断错误链上是否有某个哨兵错误用 `errors.Is`，不要直接用 ==（错误可能被包装过）[1]。判断错误链中是否包含某个哨兵错误用 errors.Is(err, target)[2]。不要再用 == 直接比较包装过的错误[2]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 303,
+      "question_id": 18,
+      "question": "在泛型约束 ~int | ~float64 中，~ 和 | 分别表示什么？",
+      "gold_answer": "~ 表示底层类型匹配，| 表示类型并集。",
+      "should_refuse": false,
+      "gold_chunk_id": 387,
+      "retrieved_chunk_ids": [
+        387,
+        389,
+        465,
+        463,
+        450
+      ],
+      "answer": "~ 表示底层类型匹配 [1]；| 表示并集 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 304,
+      "question_id": 19,
+      "question": "今天天气怎么样？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        446,
+        296,
+        333,
+        447,
+        294
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 305,
+      "question_id": 20,
+      "question": "Gin 怎么做 WebSocket 长连接？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        325,
+        323,
+        295,
+        335,
+        322
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 306,
+      "question_id": 21,
+      "question": "Gin 作者最喜欢的颜色是什么？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        324,
+        290,
+        322,
+        295,
+        326
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 307,
+      "question_id": 22,
+      "question": "Go 语言作者早餐爱吃什么？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        375,
+        449,
+        391,
+        414,
+        358
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 308,
+      "question_id": 23,
+      "question": "Gin 如何自动申请和续期 Let's Encrypt 证书？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        295,
+        335,
+        325,
+        323,
+        290
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 309,
+      "question_id": 24,
+      "question": "Go 1.27 新增了哪些语法特性？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        420,
+        451,
+        450,
+        358,
+        432
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 310,
+      "question_id": 25,
+      "question": "怎么做法式红酒炖牛肉？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        325,
+        295,
+        335,
+        317,
+        298
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 311,
+      "question_id": 26,
+      "question": "怎么让客户端删除已保存的登录凭证？",
+      "gold_answer": "把 Cookie 的有效期设为负数（如 -1），且 name、path、domain 必须与设置时一致，浏览器才能正确匹配删除。",
+      "should_refuse": false,
+      "gold_chunk_id": 297,
+      "retrieved_chunk_ids": [
+        297,
+        299,
+        298,
+        296,
+        363
+      ],
+      "answer": "把有效期设为负数即可删除 Cookie [1]。name、path、domain 必须与设置时一致，浏览器才能正确匹配删除 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 312,
+      "question_id": 27,
+      "question": "用 gin.New() 启动服务后，业务代码发生 panic 如何避免整个进程崩溃？",
+      "gold_answer": "手动添加 Recovery 中间件（r.Use(gin.Recovery()) 或 gin.CustomRecovery(...)），它会捕获 panic、打印堆栈并返回 500，进程不会退出。",
+      "should_refuse": false,
+      "gold_chunk_id": 303,
+      "retrieved_chunk_ids": [
+        303,
+        372,
+        315,
+        323,
+        345
+      ],
+      "answer": "用 gin.New() 时务必手动添加 Recovery 中间件：`r.Use(gin.Recovery())` [1]。Recovery 中间件会捕获处理链上的 panic，打印堆栈并返回 500，保证单个请求的崩溃不会打挂整个服务 [3]。业务代码里 panic 会被 Recovery 中间件捕获，返回 500 并打印堆栈，进程不会退出 [1]。需要自定义 panic 响应时用 `gin.CustomRecovery` [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 313,
+      "question_id": 28,
+      "question": "Gin 上传文件时默认多大会写到临时文件？",
+      "gold_answer": "默认 multipart 表单内存上限是 32MB，超出 32MB 的部分会落临时文件（不是拒绝请求），可用 r.MaxMultipartMemory 调整。",
+      "should_refuse": false,
+      "gold_chunk_id": 307,
+      "retrieved_chunk_ids": [
+        307,
+        308,
+        345,
+        343,
+        341
+      ],
+      "answer": "默认 multipart 表单内存上限是 32MB，超出部分落临时文件，不是拒绝请求。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 314,
+      "question_id": 29,
+      "question": "更新已有数据时，整体替换和局部修改分别对应哪个 HTTP 动作？",
+      "gold_answer": "全量（整体）更新对应 PUT，部分（局部）更新对应 PATCH。",
+      "should_refuse": false,
+      "gold_chunk_id": 327,
+      "retrieved_chunk_ids": [
+        327,
+        339,
+        421,
+        328,
+        314
+      ],
+      "answer": "整体替换对应 PUT [1][2]；局部修改对应 PATCH [1][2]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 315,
+      "question_id": 30,
+      "question": "不想额外挂载目录，如何把前端静态文件直接打包进 Go 编译出的单文件二进制里由 Gin 提供访问？",
+      "gold_answer": "使用 Go 1.16 引入的 embed（如 //go:embed static/* 声明 embed.FS 变量），再配合 r.StaticFS(\"/assets\", http.FS(staticFS)) 提供服务。",
+      "should_refuse": false,
+      "gold_chunk_id": 343,
+      "retrieved_chunk_ids": [
+        343,
+        341,
+        345,
+        344,
+        307
+      ],
+      "answer": "Go 1.16 引入的 embed 可以把静态文件编译进二进制，配合 StaticFS 使用 [1]。用 `//go:embed static/*` 声明 `var staticFS embed.FS`，再通过 `r.StaticFS(\"/assets\", http.FS(staticFS))` 注册访问 [1]。这样部署时只需要一个可执行文件，不用带上静态目录 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 316,
+      "question_id": 31,
+      "question": "调用 sql.Open 没有返回错误，能说明数据库已经连接成功吗？如何验证连通性？",
+      "gold_answer": "不能。sql.Open 只是建立连接池配置，不会真正连接；需要调用 db.Ping() 验证连通性。",
+      "should_refuse": false,
+      "gold_chunk_id": 361,
+      "retrieved_chunk_ids": [
+        361,
+        364,
+        362,
+        302,
+        368
+      ],
+      "answer": "不能说明数据库已经连接成功。sql.Open 只是建立连接池配置，不会真正连接 [1]。可以用 db.Ping() 验证连通性 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 317,
+      "question_id": 32,
+      "question": "编写公共库时，遇到一般异常应该直接终止流程还是交给调用方处理？捕获崩溃的调用写在哪里才有效？",
+      "gold_answer": "普通错误不要 panic，库代码通常不应 panic 而应返回 error 交给调用方处理；recover 只能在 defer 函数中捕获 panic。",
+      "should_refuse": false,
+      "gold_chunk_id": 367,
+      "retrieved_chunk_ids": [
+        372,
+        367,
+        304,
+        300,
+        315
+      ],
+      "answer": "库代码通常不应 panic，而应返回 error [2]。panic 用于真正的不可恢复错误（如程序内部矛盾），普通错误不要 panic [2]。recover 只能在 defer 函数中捕获 panic [2]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 318,
+      "question_id": 33,
+      "question": "在 Go 中为什么推荐用 filepath.Join 来拼接文件路径，而不是手动用斜杠拼接？",
+      "gold_answer": "filepath.Join 在拼接路径时会自动处理平台分隔符，从而兼容不同操作系统。",
+      "should_refuse": false,
+      "gold_chunk_id": 377,
+      "retrieved_chunk_ids": [
+        377,
+        332,
+        432,
+        375,
+        330
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": true,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 319,
+      "question_id": 34,
+      "question": "使用 os.Exit(1) 强制退出进程时，函数里用 defer 注册的清理代码还会运行吗？",
+      "gold_answer": "不会运行。os.Exit(1) 会立即退出且不执行 defer。",
+      "should_refuse": false,
+      "gold_chunk_id": 380,
+      "retrieved_chunk_ids": [
+        380,
+        386,
+        359,
+        372,
+        360
+      ],
+      "answer": "不会运行。os.Exit(1) 立即退出且不执行 defer [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 320,
+      "question_id": 35,
+      "question": "Go 模块主版本号升级到 v2 及以上时，模块路径必须遵守什么约定？",
+      "gold_answer": "主版本 ≥2 时，模块路径必须以 /v2 等主版本后缀结尾（语义化导入版本规则）。",
+      "should_refuse": false,
+      "gold_chunk_id": 420,
+      "retrieved_chunk_ids": [
+        420,
+        418,
+        419,
+        421,
+        404
+      ],
+      "answer": "主版本 ≥2 时模块路径必须以 /v2 等后缀结尾，这是 Go 模块特有的“语义化导入版本”规则。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 321,
+      "question_id": 36,
+      "question": "为什么在 Go 函数里把局部变量的指针返回给调用方是安全的？",
+      "gold_answer": "Go 指针安全且有垃圾回收，返回局部变量的地址是合法的，变量会自动逃逸到堆上。",
+      "should_refuse": false,
+      "gold_chunk_id": 425,
+      "retrieved_chunk_ids": [
+        425,
+        424,
+        450,
+        382,
+        439
+      ],
+      "answer": "返回局部变量的地址是合法的，变量会逃逸到堆上 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 322,
+      "question_id": 37,
+      "question": "Go 语言中如果传入非法正则表达式，regexp.MustCompile 会返回什么值？",
+      "gold_answer": "regexp.MustCompile 编译正则失败时会直接 panic，不会返回 error；需要返回 error 时应使用 regexp.Compile。",
+      "should_refuse": false,
+      "gold_chunk_id": 426,
+      "retrieved_chunk_ids": [
+        426,
+        428,
+        427,
+        356,
+        387
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": true,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 323,
+      "question_id": 38,
+      "question": "对切片排序时希望相等元素保持原来的前后顺序，应该调用 sort 包的哪个函数？",
+      "gold_answer": "应调用 sort.SliceStable，它是稳定排序，会让相等元素保持原顺序。",
+      "should_refuse": false,
+      "gold_chunk_id": 429,
+      "retrieved_chunk_ids": [
+        429,
+        430,
+        431,
+        456,
+        349
+      ],
+      "answer": "应调用 sort.SliceStable，它是稳定排序（相等元素保持原顺序）[1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 324,
+      "question_id": 39,
+      "question": "为什么说在 Go 里遍历带中文的字符串时不能只用 len(s) 当作字符数？",
+      "gold_answer": "Go 字符串是按 UTF-8 编码的只读字节序列，len(s) 返回字节数而不是字符数；逐个字符遍历应使用 for range 获取 rune（Unicode 码点）。",
+      "should_refuse": false,
+      "gold_chunk_id": 432,
+      "retrieved_chunk_ids": [
+        432,
+        433,
+        428,
+        456,
+        457
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": true,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 325,
+      "question_id": 40,
+      "question": "Go 语言不支持类继承，怎样让一个结构体自动拥有另一个结构体的属性和行为？",
+      "gold_answer": "通过结构体嵌套（嵌入）实现组合复用：将目标类型作为嵌入字段放入外层结构体，其字段和方法会被“提升”到外层结构体直接访问。",
+      "should_refuse": false,
+      "gold_chunk_id": 438,
+      "retrieved_chunk_ids": [
+        438,
+        435,
+        434,
+        436,
+        437
+      ],
+      "answer": "Go 没有继承，通过结构体嵌套（嵌入）实现组合复用 [1]。嵌入类型的字段和方法会被“提升”到外层结构体，可以直接 `dog.Name`、`dog.Speak()` [1]。这是 Go 实现代码复用的主要方式 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 326,
+      "question_id": 41,
+      "question": "Go 解析和格式化时间用的参考模板时间点是哪一个？",
+      "gold_answer": "Mon Jan 2 15:04:05 MST 2006（即 01/02 03:04:05PM '06 -0700，常用格式如 \"2006-01-02 15:04:05\"）。",
+      "should_refuse": false,
+      "gold_chunk_id": 446,
+      "retrieved_chunk_ids": [
+        446,
+        293,
+        447,
+        433,
+        432
+      ],
+      "answer": "Go 解析和格式化时间用的参考模板时间点是 Mon Jan 2 15:04:05 MST 2006（即 01/02 03:04:05PM '06 -0700）[1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 327,
+      "question_id": 42,
+      "question": "在 Go 常量组里如何自动生成从 0 递增的枚举值？",
+      "gold_answer": "在 const 常量组中使用 iota，它会从 0 开始自增。",
+      "should_refuse": false,
+      "gold_chunk_id": 451,
+      "retrieved_chunk_ids": [
+        451,
+        466,
+        464,
+        457,
+        456
+      ],
+      "answer": "在 Go 常量组里使用 iota 自动生成从 0 递增的枚举值，iota 在常量组中从 0 开始自增，常用于枚举 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 328,
+      "question_id": 43,
+      "question": "在 Go 中，应该由哪一端关闭 channel？用 for v := range ch 遍历 channel 会在什么时候结束？",
+      "gold_answer": "只有发送方才应关闭 channel；for v := range ch 会持续接收直到 channel 被关闭。",
+      "should_refuse": false,
+      "gold_chunk_id": 454,
+      "retrieved_chunk_ids": [
+        348,
+        454,
+        453,
+        354,
+        351
+      ],
+      "answer": "应该由发送方关闭 channel [1][2]。接收方关闭会向发送方制造 panic [1]。用 for v := range ch 可以一直接收到 channel 关闭为止 [1]，即可持续接收直到 channel 关闭 [2]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 329,
+      "question_id": 44,
+      "question": "在 Go 中 map 的零值是什么？刚声明但没用 make 初始化的 map 能直接写入数据吗？",
+      "gold_answer": "map 的零值是 nil；不能直接写入，必须先用 make 初始化后才能写入。",
+      "should_refuse": false,
+      "gold_chunk_id": 457,
+      "retrieved_chunk_ids": [
+        457,
+        464,
+        383,
+        424,
+        461
+      ],
+      "answer": "map 的零值是 nil [1]。map 必须用 make 初始化后才能写入 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 330,
+      "question_id": 45,
+      "question": "结构体方法要修改内部字段时，接收者应该写成哪种形式？",
+      "gold_answer": "应该写成指针接收者；值接收者操作的是副本，无法修改原结构体内容。",
+      "should_refuse": false,
+      "gold_chunk_id": 459,
+      "retrieved_chunk_ids": [
+        437,
+        459,
+        435,
+        434,
+        458
+      ],
+      "answer": "指针接收者才能修改结构体内容；值接收者操作的是副本。[2] 指针接收者的方法可以修改接收者指向的值。[1] 值接收者操作的是原值的副本，方法内对字段的修改不会影响原结构体。[1]",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 331,
+      "question_id": 46,
+      "question": "为什么 Go 里把 int 和 float64 直接相加会编译失败？",
+      "gold_answer": "Go 不会做隐式类型转换，不同类型的值之间运算必须先用 T(v) 显式转换成同一类型。",
+      "should_refuse": false,
+      "gold_chunk_id": 465,
+      "retrieved_chunk_ids": [
+        465,
+        426,
+        450,
+        417,
+        428
+      ],
+      "answer": "Go 不会做隐式类型转换，不同类型的值之间运算必须显式转换 [1]。把 int 和 float64 直接相加会编译报错，必须先转成同一类型 [1]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 332,
+      "question_id": 47,
+      "question": "在 Gin 中怎么让多条路由或整个服务复用同一段前置处理逻辑？",
+      "gold_answer": "使用中间件：通过 r.Use() 注册全局中间件对所有路由生效，或通过 r.Group(..., 中间件) 为路由组挂载中间件，在中间件 c.Next() 之前执行前置逻辑。",
+      "should_refuse": false,
+      "gold_chunk_id": 312,
+      "retrieved_chunk_ids": [
+        336,
+        338,
+        315,
+        335,
+        312
+      ],
+      "answer": "`r.Use()` 注册的中间件对该引擎上的所有路由生效 [5]。Use 的顺序就是执行顺序，先注册的先执行请求阶段 [5]。",
+      "refused": false,
+      "hit": true,
+      "citation_ok": true,
+      "usable": null
+    },
+    {
+      "run_id": 333,
+      "question_id": 48,
+      "question": "Gin 的 Hot Reload（热重载）怎么做？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        322,
+        323,
+        324,
+        303,
+        315
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 334,
+      "question_id": 49,
+      "question": "Gin 怎么接入 Swagger 自动生成 API 文档？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        322,
+        323,
+        324,
+        328,
+        301
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 335,
+      "question_id": 50,
+      "question": "Go 怎么用 sync.Pool 复用临时对象来减少 GC 压力？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        394,
+        455,
+        393,
+        392,
+        347
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 336,
+      "question_id": 51,
+      "question": "Go 1.22 的 range over func 自定义迭代器怎么写？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        392,
+        340,
+        432,
+        384,
+        452
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    },
+    {
+      "run_id": 337,
+      "question_id": 52,
+      "question": "Gin 怎么使用 r.RunTLS 直接传入证书和私钥文件开启 HTTPS？",
+      "gold_answer": "文档中没有依据",
+      "should_refuse": true,
+      "gold_chunk_id": null,
+      "retrieved_chunk_ids": [
+        325,
+        335,
+        343,
+        295,
+        323
+      ],
+      "answer": "文档中没有依据",
+      "refused": true,
+      "hit": null,
+      "citation_ok": null,
+      "usable": null
+    }
+  ],
+  "counts": {
+    "question_count": 52,
+    "answerable_count": 40,
+    "false_refusal_count": 3,
+    "answered_count": 37,
+    "marked_count": 0,
+    "pending_count": 37,
+    "usable_count": 0
+  }
+}

@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Go 知识问答 · 可溯源 Demo</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --surface-muted: #f9fafb;
+      --surface-refusal: #f3f4f6;
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --text: #111827;
+      --text-secondary: #4b5563;
+      --text-muted: #6b7280;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #eff6ff;
+      --accent-border: #bfdbfe;
+      --error-text: #991b1b;
+      --error-bg: #fef2f2;
+      --error-border: #fecaca;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 820px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0 auto;
+      padding: 40px 20px 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    .title {
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .ask-section {
+      margin-bottom: 24px;
+    }
+
+    .ask-form {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .ask-input {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 14px;
+      font-size: 15px;
+      line-height: 1.4;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .ask-input::placeholder {
+      color: #9ca3af;
+    }
+
+    .ask-input:focus {
+      border-color: var(--accent);
+    }
+
+    .ask-input:disabled {
+      background: var(--surface-muted);
+      color: var(--text-muted);
+    }
+
+    .ask-btn {
+      flex-shrink: 0;
+      min-width: 96px;
+      padding: 11px 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .ask-btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .ask-btn:disabled {
+      opacity: 0.72;
+      cursor: not-allowed;
+    }
+
+    .btn-spinner {
+      display: none;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    .ask-btn.is-loading .btn-spinner {
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .examples {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .example-chip {
+      padding: 3px 10px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      max-width: 100%;
+      text-align: left;
+      transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .example-chip:hover:not(:disabled) {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+
+    .example-chip:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .validation-hint {
+      margin: 8px 0 0;
+      font-size: 13px;
+      color: var(--error-text);
+    }
+
+    .result-area {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .status-box {
+      padding: 14px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .loading-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-secondary);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+    }
+
+    .loading-dot {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      border: 2px solid var(--border-strong);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    .error-box {
+      color: var(--error-text);
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+    }
+
+    .refusal-box {
+      padding: 18px 20px;
+      background: var(--surface-refusal);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--text-secondary);
+    }
+
+    .refusal-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .refusal-desc {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .answer-card {
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .section-label {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+    }
+
+    .section-sub {
+      font-weight: 400;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    .answer-body {
+      font-size: 15.5px;
+      line-height: 1.75;
+      color: var(--text);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .answer-body p {
+      margin: 0 0 10px;
+    }
+
+    .answer-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .inline-code {
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow-wrap: anywhere;
+    }
+
+    .code-block {
+      margin: 10px 0;
+      padding: 12px 14px;
+      max-width: 100%;
+      overflow-x: auto;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      white-space: pre;
+    }
+
+    .cite-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 2px;
+      padding: 0 6px;
+      min-height: 22px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      border-radius: 4px;
+      cursor: pointer;
+      vertical-align: baseline;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .cite-tag:hover,
+    .cite-tag.is-active {
+      color: #ffffff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .sources-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sources-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .source-card {
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border-strong);
+      border-radius: 8px;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .source-card.is-active {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      border-left-color: var(--accent);
+    }
+
+    .source-card.is-flash {
+      animation: citePulse 0.8s ease-out;
+    }
+
+    @keyframes citePulse {
+      0% { background-color: #dbeafe; }
+      100% { background-color: var(--accent-soft); }
+    }
+
+    .source-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+      margin-bottom: 8px;
+    }
+
+    .source-num {
+      display: inline-block;
+      padding: 1px 7px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .source-card.is-active .source-num {
+      color: #ffffff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .source-heading {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .source-cited-badge {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0 6px;
+    }
+
+    .source-content {
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .expand-btn {
+      margin-top: 8px;
+      padding: 3px 10px;
+      font-size: 12.5px;
+      font-family: inherit;
+      color: var(--accent);
+      background: var(--surface);
+      border: 1px solid var(--accent-border);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .expand-btn:hover {
+      background: var(--accent-soft);
+    }
+
+    /* 右下角统计与评测小字（评测指标按阶段 6 迭代 4 实测结果填写，更新于 2026-11-17） */
+    .meta-corner {
+      margin-top: auto;
+      padding-top: 36px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 4px 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .meta-item {
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 600px) {
+      .page {
+        padding: 22px 14px 18px;
+      }
+
+      .title {
+        font-size: 20px;
+      }
+
+      .ask-form {
+        flex-direction: column;
+      }
+
+      .ask-btn {
+        width: 100%;
+      }
+
+      .answer-card {
+        padding: 16px;
+      }
+
+      .source-card {
+        padding: 12px 14px;
+      }
+
+      .meta-corner {
+        justify-content: flex-start;
+        padding-top: 28px;
+      }
+
+      .meta-sep {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1 class="title">Go 知识问答 · 可溯源 Demo</h1>
+      <p class="subtitle">基于 Go / Gin 官方文档检索作答，每句结论标注来源编号，无依据时明确拒答。</p>
+    </header>
+
+    <section class="ask-section">
+      <form id="ask-form" class="ask-form" novalidate>
+        <input
+          id="question-input"
+          class="ask-input"
+          type="text"
+          placeholder="输入 Go 或 Gin 相关问题，例如：Gin 路由组怎么用？"
+          autocomplete="off"
+          aria-label="输入问题"
+        />
+        <button id="ask-btn" class="ask-btn" type="submit">
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span class="btn-label">提问</span>
+        </button>
+      </form>
+
+      <div class="examples" aria-label="示例问题">
+        <span>示例：</span>
+        <button type="button" class="example-chip" data-q="Gin 路由组怎么用？">Gin 路由组怎么用？</button>
+        <button type="button" class="example-chip" data-q="Gin 里怎么绑定 JSON 请求体？">Gin 里怎么绑定 JSON 请求体？</button>
+        <button type="button" class="example-chip" data-q="怎么做法式红酒炖牛肉？">怎么做法式红酒炖牛肉？</button>
+      </div>
+
+      <p id="validation-hint" class="validation-hint" hidden></p>
+    </section>
+
+    <main id="result-area" class="result-area" aria-live="polite">
+      <div id="loading-box" class="status-box loading-box" hidden>
+        <span class="loading-dot" aria-hidden="true"></span>
+        <span>正在检索语料并生成回答，请稍候…</span>
+      </div>
+
+      <div id="error-box" class="status-box error-box" role="alert" hidden></div>
+
+      <section id="refusal-box" class="refusal-box" hidden>
+        <p class="refusal-title">文档中没有依据</p>
+        <p class="refusal-desc">当前语料中未检索到足够依据，系统已拒答而不编造结论。</p>
+      </section>
+
+      <section id="answer-card" class="answer-card" hidden>
+        <h2 class="section-label">回答</h2>
+        <div id="answer-body" class="answer-body"></div>
+      </section>
+
+      <section id="sources-section" class="sources-section" hidden>
+        <h2 class="section-label">
+          <span id="sources-title">参考来源</span>
+          <span class="section-sub">点击回答中的 [n] 可高亮并定位到对应段落</span>
+        </h2>
+        <div id="sources-list" class="sources-list"></div>
+      </section>
+    </main>
+
+    <!-- 角落信息：语料段数实时请求 /api/chunks；最近评测 4 指标按阶段 6 迭代 4 实测值手动填写（更新于 2026-11-17） -->
+    <footer class="meta-corner">
+      <span id="chunk-status" class="meta-item">当前语料：加载中…</span>
+      <span class="meta-sep" aria-hidden="true">·</span>
+      <span class="meta-item">最近评测（52 题，更新于 2026-11-17）：检索命中率 100% · 引用准确率 100% · 答案可用率 100% · 拒答正确率 100%</span>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var COLLAPSE_THRESHOLD = 300;
+      var REFUSE_TEXT = '文档中没有依据';
+
+      var form = document.getElementById('ask-form');
+      var questionInput = document.getElementById('question-input');
+      var askBtn = document.getElementById('ask-btn');
+      var btnLabel = askBtn.querySelector('.btn-label');
+      var validationHint = document.getElementById('validation-hint');
+      var loadingBox = document.getElementById('loading-box');
+      var errorBox = document.getElementById('error-box');
+      var refusalBox = document.getElementById('refusal-box');
+      var answerCard = document.getElementById('answer-card');
+      var answerBody = document.getElementById('answer-body');
+      var sourcesSection = document.getElementById('sources-section');
+      var sourcesTitle = document.getElementById('sources-title');
+      var sourcesList = document.getElementById('sources-list');
+      var chunkStatus = document.getElementById('chunk-status');
+      var exampleChips = document.querySelectorAll('.example-chip');
+
+      var isLoading = false;
+
+      // 加载当前语料总段数
+      function loadChunkCount() {
+        fetch('/api/chunks', { method: 'GET' })
+          .then(function (resp) {
+            if (!resp.ok) {
+              throw new Error('HTTP ' + resp.status);
+            }
+            return resp.json();
+          })
+          .then(function (data) {
+            if (data && typeof data.total === 'number') {
+              chunkStatus.textContent = '当前语料 ' + data.total + ' 段';
+            } else {
+              chunkStatus.textContent = '当前语料段数未知';
+            }
+          })
+          .catch(function () {
+            chunkStatus.textContent = '当前语料段数获取失败';
+          });
+      }
+
+      function setLoading(loading) {
+        isLoading = loading;
+        askBtn.disabled = loading;
+        askBtn.classList.toggle('is-loading', loading);
+        askBtn.setAttribute('aria-busy', loading ? 'true' : 'false');
+        btnLabel.textContent = loading ? '回答中...' : '提问';
+        questionInput.disabled = loading;
+        for (var i = 0; i < exampleChips.length; i++) {
+          exampleChips[i].disabled = loading;
+        }
+        loadingBox.hidden = !loading;
+      }
+
+      function clearResults() {
+        errorBox.hidden = true;
+        errorBox.textContent = '';
+        refusalBox.hidden = true;
+        answerCard.hidden = true;
+        answerBody.textContent = '';
+        sourcesSection.hidden = true;
+        sourcesList.textContent = '';
+      }
+
+      function showError(message) {
+        clearResults();
+        errorBox.textContent = message;
+        errorBox.hidden = false;
+      }
+
+      // 将普通行内文本切分为行内代码与可点击引用按钮 [n]
+      function appendInlineTokens(parent, text, validCitationSet) {
+        var inlineCodeRe = /`([^`\n]+)`/g;
+        var lastIndex = 0;
+        var match;
+        while ((match = inlineCodeRe.exec(text)) !== null) {
+          if (match.index > lastIndex) {
+            appendCitationTokens(parent, text.slice(lastIndex, match.index), validCitationSet);
+          }
+          var codeEl = document.createElement('code');
+          codeEl.className = 'inline-code';
+          codeEl.textContent = match[1];
+          parent.appendChild(codeEl);
+          lastIndex = inlineCodeRe.lastIndex;
+        }
+        if (lastIndex < text.length) {
+          appendCitationTokens(parent, text.slice(lastIndex), validCitationSet);
+        }
+      }
+
+      function appendCitationTokens(parent, text, validCitationSet) {
+        var citeRe = /\[(\d+)\]/g;
+        var lastIndex = 0;
+        var match;
+        while ((match = citeRe.exec(text)) !== null) {
+          if (match.index > lastIndex) {
+            parent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+          }
+          var n = Number(match[1]);
+          if (validCitationSet.has(n)) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'cite-tag';
+            btn.setAttribute('data-cite-n', String(n));
+            btn.setAttribute('aria-label', '跳转到来源 [' + n + ']');
+            btn.textContent = '[' + n + ']';
+            parent.appendChild(btn);
+          } else {
+            parent.appendChild(document.createTextNode(match[0]));
+          }
+          lastIndex = citeRe.lastIndex;
+        }
+        if (lastIndex < text.length) {
+          parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+      }
+
+      // 安全渲染答案正文（先剥离围栏代码块，避免代码下标被误判为引用编号）
+      function renderAnswerBody(answerText, validCitationSet) {
+        answerBody.textContent = '';
+        var normalized = String(answerText || '').replace(/\r\n/g, '\n');
+        var fencedRe = /```[^\n]*\n?([\s\S]*?)```/g;
+        var lastIndex = 0;
+        var match;
+
+        function renderProseBlock(prose) {
+          var paragraphs = prose.split(/\n{2,}/);
+          for (var i = 0; i < paragraphs.length; i++) {
+            var paraText = paragraphs[i].trim();
+            if (!paraText) {
+              continue;
+            }
+            var p = document.createElement('p');
+            var lines = paraText.split('\n');
+            for (var j = 0; j < lines.length; j++) {
+              if (j > 0) {
+                p.appendChild(document.createElement('br'));
+              }
+              appendInlineTokens(p, lines[j], validCitationSet);
+            }
+            answerBody.appendChild(p);
+          }
+        }
+
+        while ((match = fencedRe.exec(normalized)) !== null) {
+          if (match.index > lastIndex) {
+            renderProseBlock(normalized.slice(lastIndex, match.index));
+          }
+          var pre = document.createElement('pre');
+          pre.className = 'code-block';
+          var code = document.createElement('code');
+          code.textContent = match[1].replace(/\n$/, '');
+          pre.appendChild(code);
+          answerBody.appendChild(pre);
+          lastIndex = fencedRe.lastIndex;
+        }
+        if (lastIndex < normalized.length) {
+          renderProseBlock(normalized.slice(lastIndex));
+        }
+      }
+
+      // 提取答案正文（不含代码段）中实际引用的编号，用于标注“已引用”
+      function extractCitedNumbers(answerText) {
+        var stripped = String(answerText || '')
+          .replace(/```[\s\S]*?```/g, '')
+          .replace(/`[^`\n]*`/g, '');
+        var cited = new Set();
+        var re = /\[(\d+)\]/g;
+        var m;
+        while ((m = re.exec(stripped)) !== null) {
+          cited.add(Number(m[1]));
+        }
+        return cited;
+      }
+
+      function renderSources(citations, citedInAnswer) {
+        sourcesList.textContent = '';
+        if (!Array.isArray(citations) || citations.length === 0) {
+          sourcesSection.hidden = true;
+          return;
+        }
+
+        sourcesTitle.textContent = '参考来源（' + citations.length + ' 段）';
+
+        for (var i = 0; i < citations.length; i++) {
+          var item = citations[i];
+          var card = document.createElement('article');
+          card.className = 'source-card';
+          card.id = 'source-card-' + item.n;
+          card.setAttribute('data-cite-n', String(item.n));
+
+          var head = document.createElement('div');
+          head.className = 'source-head';
+
+          var numBadge = document.createElement('span');
+          numBadge.className = 'source-num';
+          numBadge.textContent = '[' + item.n + ']';
+          head.appendChild(numBadge);
+
+          var heading = document.createElement('span');
+          heading.className = 'source-heading';
+          heading.textContent = item.heading || '未命名段落';
+          head.appendChild(heading);
+
+          if (citedInAnswer.has(Number(item.n))) {
+            var citedTag = document.createElement('span');
+            citedTag.className = 'source-cited-badge';
+            citedTag.textContent = '已引用';
+            head.appendChild(citedTag);
+          }
+
+          card.appendChild(head);
+
+          var fullText = String(item.content || '');
+          var chars = Array.from(fullText);
+          var needsCollapse = chars.length > COLLAPSE_THRESHOLD;
+          var collapsedText = needsCollapse
+            ? chars.slice(0, COLLAPSE_THRESHOLD).join('') + '…'
+            : fullText;
+
+          var contentEl = document.createElement('div');
+          contentEl.className = 'source-content';
+          contentEl.textContent = collapsedText;
+          card.appendChild(contentEl);
+
+          if (needsCollapse) {
+            (function (targetContentEl, totalChars, previewText, completeText) {
+              var expanded = false;
+              var toggleBtn = document.createElement('button');
+              toggleBtn.type = 'button';
+              toggleBtn.className = 'expand-btn';
+              toggleBtn.setAttribute('aria-expanded', 'false');
+              toggleBtn.textContent = '展开全文（共 ' + totalChars + ' 字）';
+              toggleBtn.addEventListener('click', function () {
+                expanded = !expanded;
+                targetContentEl.textContent = expanded ? completeText : previewText;
+                toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                toggleBtn.textContent = expanded ? '收起' : '展开全文（共 ' + totalChars + ' 字）';
+              });
+              card.appendChild(toggleBtn);
+            })(contentEl, chars.length, collapsedText, fullText);
+          }
+
+          sourcesList.appendChild(card);
+        }
+
+        sourcesSection.hidden = false;
+      }
+
+      // 高亮对应来源卡片并平滑滚动定位
+      function highlightAndScrollToSource(n) {
+        var targetCard = document.getElementById('source-card-' + n);
+        if (!targetCard) {
+          return;
+        }
+        var cards = sourcesList.querySelectorAll('.source-card');
+        for (var i = 0; i < cards.length; i++) {
+          cards[i].classList.remove('is-active', 'is-flash');
+        }
+        var tags = answerBody.querySelectorAll('.cite-tag');
+        for (var j = 0; j < tags.length; j++) {
+          var same = Number(tags[j].getAttribute('data-cite-n')) === Number(n);
+          tags[j].classList.toggle('is-active', same);
+        }
+
+        targetCard.classList.add('is-active');
+        void targetCard.offsetWidth; // 强制重排以重新触发脉冲高亮动画
+        targetCard.classList.add('is-flash');
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      answerBody.addEventListener('click', function (e) {
+        var btn = e.target.closest('.cite-tag');
+        if (!btn) {
+          return;
+        }
+        var n = Number(btn.getAttribute('data-cite-n'));
+        if (n > 0) {
+          highlightAndScrollToSource(n);
+        }
+      });
+
+      function submitQuestion() {
+        if (isLoading) {
+          return;
+        }
+        var question = questionInput.value.trim();
+        if (!question) {
+          validationHint.textContent = '请输入问题后再提问。';
+          validationHint.hidden = false;
+          questionInput.focus();
+          return;
+        }
+        validationHint.hidden = true;
+        validationHint.textContent = '';
+        clearResults();
+        setLoading(true);
+
+        fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question })
+        })
+          .then(function (resp) {
+            return resp.text().then(function (rawText) {
+              var payload = null;
+              try {
+                payload = rawText ? JSON.parse(rawText) : null;
+              } catch (_) {
+                payload = null;
+              }
+              if (!resp.ok) {
+                var serverErr = payload && payload.error ? payload.error : ('HTTP ' + resp.status);
+                throw new Error(serverErr);
+              }
+              if (!payload || typeof payload.answer !== 'string') {
+                throw new Error('服务端返回格式异常');
+              }
+              return payload;
+            });
+          })
+          .then(function (data) {
+            setLoading(false);
+            var citations = Array.isArray(data.citations) ? data.citations : [];
+            var isRefused = Boolean(data.refused) || (data.answer.trim() === REFUSE_TEXT && citations.length === 0);
+
+            if (isRefused) {
+              clearResults();
+              refusalBox.hidden = false;
+              return;
+            }
+
+            var validCitationSet = new Set();
+            for (var i = 0; i < citations.length; i++) {
+              validCitationSet.add(Number(citations[i].n));
+            }
+            var citedInAnswer = extractCitedNumbers(data.answer);
+
+            renderAnswerBody(data.answer, validCitationSet);
+            answerCard.hidden = false;
+            renderSources(citations, citedInAnswer);
+          })
+          .catch(function (err) {
+            setLoading(false);
+            var msg = err && err.message ? err.message : '网络异常，请检查服务是否启动';
+            showError('请求失败：' + msg);
+          });
+      }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        submitQuestion();
+      });
+
+      questionInput.addEventListener('input', function () {
+        if (!validationHint.hidden && questionInput.value.trim()) {
+          validationHint.hidden = true;
+        }
+      });
+
+      for (var i = 0; i < exampleChips.length; i++) {
+        exampleChips[i].addEventListener('click', function () {
+          if (isLoading) {
+            return;
+          }
+          questionInput.value = this.getAttribute('data-q') || '';
+          submitQuestion();
+        });
+      }
+
+      loadChunkCount();
+    })();
+  </script>
+</body>
+</html>
