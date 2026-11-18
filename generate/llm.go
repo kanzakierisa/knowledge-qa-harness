@@ -3,8 +3,10 @@ package generate
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"sort"
@@ -15,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"knowledge-qa/retrieve"
+	"knowledge-qa/store"
 )
 
 // ChatClient 调 OpenAI 兼容的 chat completions API。
@@ -35,10 +38,16 @@ func NewChatClient(baseURL, apiKey, model string) *ChatClient {
 	}
 }
 
+type responseFormat struct {
+	Type string `json:"type"`
+}
+
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
+	Model          string          `json:"model"`
+	Messages       []chatMessage   `json:"messages"`
+	Temperature    float64         `json:"temperature"`
+	MaxTokens      int             `json:"max_tokens,omitempty"`
+	ResponseFormat *responseFormat `json:"response_format,omitempty"`
 }
 
 type chatMessage struct {
@@ -55,14 +64,53 @@ type chatResponse struct {
 	} `json:"error"`
 }
 
+type httpStatusError struct {
+	statusCode int
+	body       string
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("LLM API 返回 %d：%s", e.statusCode, e.body)
+}
+
+const jsonModeMaxTokens = 2048
+
 // Chat 发送单轮 user 消息，返回助手回复文本。
 // Temperature 显式设为 0，保证引用标注与拒答判定在不同批次评测间可复现。
 func (c *ChatClient) Chat(userPrompt string) (string, error) {
-	reqBody, _ := json.Marshal(chatRequest{
+	return c.chatOnce(userPrompt, false)
+}
+
+// chatJSON 优先附带 response_format={"type":"json_object"} 发起单轮 user 请求；
+// 若端点因不支持该参数返回 400 或返回空白内容，则自动回退到纯文本单轮请求。
+func (c *ChatClient) chatJSON(userPrompt string) (string, error) {
+	ans, err := c.chatOnce(userPrompt, true)
+	if err != nil {
+		var statusErr *httpStatusError
+		if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusBadRequest {
+			log.Printf("[chat] JSON 模式返回 HTTP 400，自动回退纯文本请求：%s", statusErr.body)
+			return c.chatOnce(userPrompt, false)
+		}
+		return "", err
+	}
+	if strings.TrimSpace(ans) == "" {
+		log.Printf("[chat] JSON 模式返回空白内容，自动回退纯文本请求")
+		return c.chatOnce(userPrompt, false)
+	}
+	return ans, nil
+}
+
+func (c *ChatClient) chatOnce(userPrompt string, jsonMode bool) (string, error) {
+	reqPayload := chatRequest{
 		Model:       c.model,
 		Messages:    []chatMessage{{Role: "user", Content: userPrompt}},
 		Temperature: 0,
-	})
+	}
+	if jsonMode {
+		reqPayload.MaxTokens = jsonModeMaxTokens
+		reqPayload.ResponseFormat = &responseFormat{Type: "json_object"}
+	}
+	reqBody, _ := json.Marshal(reqPayload)
 	req, err := http.NewRequest("POST", c.baseURL+"/chat/completions", bytes.NewReader(reqBody))
 	if err != nil {
 		return "", err
@@ -77,7 +125,7 @@ func (c *ChatClient) Chat(userPrompt string) (string, error) {
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("LLM API 返回 %d：%s", resp.StatusCode, string(raw))
+		return "", &httpStatusError{statusCode: resp.StatusCode, body: string(raw)}
 	}
 	var cr chatResponse
 	if err := json.Unmarshal(raw, &cr); err != nil {
@@ -246,40 +294,166 @@ func validate(answer string, maxN int) (ok bool, reason string) {
 	return true, ""
 }
 
-// GenerateAnswer 生成答案并做引用后校验（阶段 4 硬约束）：
-//  1. 用 v2 prompt 调 LLM；
-//  2. 模型输出为拒答文案 → 直接返回（refused 由调用方判定，此处 ok=true 交回原文）；
-//  3. 引用编号非法或完全无引用 → 把错误原因追加进 prompt 重试一次；
-//  4. 重试仍失败 → ok=false，调用方整题按拒答处理。
-//
-// 返回：answer 最终答案；retried 是否发生了重试；ok 引用校验是否通过。
+// GenerateAnswer 生成答案并做 Quote-First 结构化校验 + 引用后校验（阶段 4/11）：
+//  1. 用 G1 Quote-First JSON prompt 调 LLM（自动兼容纯文本 Mock/不支持 response_format 的端点）；
+//  2. 若返回合法 JSON：decision="refuse" 直接返回 RefuseAnswer 彻底隔离解释文本；decision="answer" 必须通过 quotes 原文核验，再抽取自然语言 answer 走 validateCitations；
+//  3. 若返回非 JSON 纯文本：无缝沿用阶段 4 原有 IsRefusal + validateCitations 链路；
+//  4. 校验失败则追加错误原因重试一次，仍失败返回 RefuseAnswer 与 ok=false。
 func (c *ChatClient) GenerateAnswer(question string, top []retrieve.MergedChunk) (answer string, retried bool, ok bool, err error) {
 	prompt := BuildPrompt(question, top)
 
-	answer, err = c.Chat(prompt)
+	raw, err := c.chatJSON(prompt)
 	if err != nil {
 		return "", false, false, err
 	}
-	// 模型主动拒答：不做引用校验，直接交回
-	if IsRefusal(answer) {
-		return answer, false, true, nil
+	ans, refused, ok, reason := parseStructuredOrPlainAnswer(raw, top)
+	if refused || ok {
+		return ans, false, true, nil
 	}
-	ok, reason := validateCitations(answer, len(top))
-	if ok {
-		return answer, false, true, nil
-	}
-	// 校验失败：把错误原因追加进 prompt 重试一次
+
 	retryPrompt := AppendRetryReason(prompt, reason)
-	answer2, err2 := c.Chat(retryPrompt)
+	raw2, err2 := c.chatJSON(retryPrompt)
 	if err2 != nil {
 		return "", true, false, err2
 	}
-	if IsRefusal(answer2) {
-		return answer2, true, true, nil
+	ans2, refused2, ok2, _ := parseStructuredOrPlainAnswer(raw2, top)
+	if refused2 || ok2 {
+		return ans2, true, true, nil
 	}
-	if ok2, _ := validateCitations(answer2, len(top)); ok2 {
-		return answer2, true, true, nil
-	}
-	// 重试仍失败：整题按拒答处理
 	return RefuseAnswer, true, false, nil
+}
+
+type structuredQuote struct {
+	Source int    `json:"source"`
+	Text   string `json:"text"`
+}
+
+type structuredAnswer struct {
+	Quotes   []structuredQuote `json:"quotes"`
+	Decision string            `json:"decision"`
+	Answer   string            `json:"answer"`
+}
+
+func stripJSONCodeFence(s string) string {
+	trimmed := strings.TrimSpace(s)
+	if !strings.HasPrefix(trimmed, "```") {
+		return trimmed
+	}
+	nl := strings.IndexByte(trimmed, '\n')
+	if nl < 0 {
+		return trimmed
+	}
+	firstLine := strings.TrimSpace(trimmed[:nl])
+	if !strings.EqualFold(firstLine, "```") && !strings.EqualFold(firstLine, "```json") {
+		return trimmed
+	}
+	body := strings.TrimSpace(trimmed[nl+1:])
+	body = strings.TrimSpace(strings.TrimSuffix(body, "```"))
+	return body
+}
+
+func looksLikeJSONObject(s string) bool {
+	if !strings.HasPrefix(s, "{") {
+		return false
+	}
+	return strings.HasSuffix(s, "}") || strings.Contains(s, `"decision"`) || strings.Contains(s, `"quotes"`)
+}
+
+func parseStructuredOrPlainAnswer(raw string, top []retrieve.MergedChunk) (answer string, refused bool, ok bool, retryReason string) {
+	trimmed := strings.TrimSpace(raw)
+	candidate := stripJSONCodeFence(trimmed)
+	if looksLikeJSONObject(candidate) {
+		var sa structuredAnswer
+		if err := json.Unmarshal([]byte(candidate), &sa); err != nil {
+			return "", false, false, fmt.Sprintf("你上次输出了无效的 JSON（%v），请严格输出单个合法 JSON 对象", err)
+		}
+		dec := strings.ToLower(strings.TrimSpace(sa.Decision))
+		if dec == "refuse" || dec == "abstain" {
+			return RefuseAnswer, true, true, ""
+		}
+		if dec != "answer" {
+			return "", false, false, "你上次 JSON 中的 decision 必须是 \"answer\" 或 \"refuse\""
+		}
+		if len(sa.Quotes) == 0 {
+			return "", false, false, fmt.Sprintf("当 decision 为 \"answer\" 时，quotes 不能为空，必须先从 [1]-[%d] 逐字摘录原文；若资料不足以回答请设 decision 为 \"refuse\"", len(top))
+		}
+		for i, q := range sa.Quotes {
+			if q.Source < 1 || q.Source > len(top) {
+				return "", false, false, fmt.Sprintf("quotes 中的 source=%d 越界，只能使用 [1]-[%d]", q.Source, len(top))
+			}
+			if !quoteMatchesChunk(q.Text, top[q.Source-1].Chunk) {
+				return "", false, false, fmt.Sprintf("quotes 中的第 %d 条摘录（%q）在资料 [%d] 中找不到对应原文，请逐字摘录资料原句；若资料不足以回答请设 decision 为 \"refuse\"", i+1, q.Text, q.Source)
+			}
+		}
+		ans := strings.TrimSpace(sa.Answer)
+		if ans == "" {
+			return "", false, false, "当 decision 为 \"answer\" 时，answer 不能为空；若资料不足以回答请设 decision 为 \"refuse\""
+		}
+		if IsRefusal(ans) {
+			return RefuseAnswer, true, true, ""
+		}
+		citOK, citReason := validateCitations(ans, len(top))
+		if !citOK {
+			return "", false, false, citReason
+		}
+		return ans, false, true, ""
+	}
+
+	// 纯文本回退链路：完全保留 V1 阶段 4 与 Mock 单测兼容
+	if IsRefusal(trimmed) {
+		return trimmed, true, true, ""
+	}
+	citOK, citReason := validateCitations(trimmed, len(top))
+	if !citOK {
+		return "", false, false, citReason
+	}
+	return trimmed, false, true, ""
+}
+
+func compactForQuoteMatch(s string) string {
+	s = strings.ReplaceAll(s, "**", "")
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if unicode.IsSpace(r) || r == '`' {
+			continue
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return b.String()
+}
+
+func quoteMatchesChunk(quoteText string, chunk store.Chunk) bool {
+	haystack := compactForQuoteMatch(chunk.HeadingPath + "\n" + chunk.Content)
+	if haystack == "" {
+		return false
+	}
+	// 若模型使用省略号拼接同片断句，要求各片段均达到最小长度并按序出现在原切片中
+	if strings.Contains(quoteText, "...") || strings.Contains(quoteText, "……") {
+		normalized := strings.ReplaceAll(quoteText, "……", "...")
+		parts := strings.Split(normalized, "...")
+		nonEmpty := 0
+		offset := 0
+		for _, part := range parts {
+			comp := compactForQuoteMatch(part)
+			if comp == "" {
+				continue
+			}
+			nonEmpty++
+			if utf8.RuneCountInString(comp) < 4 {
+				return false
+			}
+			idx := strings.Index(haystack[offset:], comp)
+			if idx < 0 {
+				return false
+			}
+			offset += idx + len(comp)
+		}
+		return nonEmpty > 0
+	}
+	needle := compactForQuoteMatch(quoteText)
+	if utf8.RuneCountInString(needle) < 2 {
+		return false
+	}
+	return strings.Contains(haystack, needle)
 }

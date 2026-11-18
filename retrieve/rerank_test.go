@@ -116,3 +116,77 @@ func TestRerankAndSelectPreservesFinalAndFallsBack(t *testing.T) {
 		t.Fatalf("plan A rerank mismatch: %+v", reranked)
 	}
 }
+
+type stubReranker struct {
+	fn func(query string, docs []string, topN int) ([]RerankResult, error)
+}
+
+func (s stubReranker) Rerank(query string, documents []string, topN int) ([]RerankResult, error) {
+	return s.fn(query, documents, topN)
+}
+
+func TestRerankAndSelectConvexBlendAndNarrowSpan(t *testing.T) {
+	// 1. 凸组合保护高融合分语义命中不被微弱字面 Rerank 逆转
+	// chunk 10: Final=0.82, rerank=0.68 -> normR=(0.68-0.10)/(0.74-0.10)=0.90625 -> blend=0.8631
+	// chunk 11: Final=0.42, rerank=0.74 -> normR=1.0 -> blend=0.7100
+	// chunk 12: Final=0.35, rerank=0.10 -> normR=0.0 -> blend=0.1750
+	scored := []MergedChunk{
+		{Chunk: store.Chunk{ID: 10, Content: "A"}, Final: 0.82},
+		{Chunk: store.Chunk{ID: 11, Content: "B"}, Final: 0.42},
+		{Chunk: store.Chunk{ID: 12, Content: "C"}, Final: 0.35},
+	}
+	blended := RerankAndSelect("query", scored, stubReranker{
+		fn: func(_ string, _ []string, _ int) ([]RerankResult, error) {
+			return []RerankResult{
+				{Index: 1, RelevanceScore: 0.74},
+				{Index: 0, RelevanceScore: 0.68},
+				{Index: 2, RelevanceScore: 0.10},
+			}, nil
+		},
+	}, TopN, DefaultCoverageMinScore)
+	if len(blended) != 3 || blended[0].Chunk.ID != 10 || blended[0].Final != 0.82 {
+		t.Fatalf("convex blend should preserve strong Final semantic match at #1: %+v", blended)
+	}
+
+	// 2. maxR == minR 与极窄分差保护：不得除零产生 NaN，并按原 Final 顺序稳定排序
+	flat := RerankAndSelect("query", scored, stubReranker{
+		fn: func(_ string, _ []string, _ int) ([]RerankResult, error) {
+			return []RerankResult{
+				{Index: 2, RelevanceScore: 0.5000000},
+				{Index: 1, RelevanceScore: 0.5000002},
+				{Index: 0, RelevanceScore: 0.5000000},
+			}, nil
+		},
+	}, TopN, DefaultCoverageMinScore)
+	if len(flat) != 3 || flat[0].Chunk.ID != 10 || flat[1].Chunk.ID != 11 || flat[2].Chunk.ID != 12 {
+		t.Fatalf("narrow-span protection should fall back to Final order: %+v", flat)
+	}
+
+	// 3. 候选窗口扩大到 Top 25：第 22 名高相关切片可进入 Top 5，且第 26 名不会被送进 Reranker
+	wide := make([]MergedChunk, 26)
+	for i := range wide {
+		wide[i] = MergedChunk{Chunk: store.Chunk{ID: int64(i + 1), Content: "doc"}, Final: 0.70 - float64(i)*0.01}
+	}
+	var seenDocs int
+	wideOut := RerankAndSelect("query", wide, stubReranker{
+		fn: func(_ string, docs []string, topN int) ([]RerankResult, error) {
+			seenDocs = len(docs)
+			res := make([]RerankResult, len(docs))
+			for i := range docs {
+				score := 0.2
+				if i == 21 { // 原始第 22 名（ID=22, Final=0.49）重排分最高
+					score = 0.99
+				}
+				res[i] = RerankResult{Index: i, RelevanceScore: score}
+			}
+			return res, nil
+		},
+	}, TopN, DefaultCoverageMinScore)
+	if seenDocs != RerankCandidateLimit {
+		t.Fatalf("expected %d candidates passed to reranker, got %d", RerankCandidateLimit, seenDocs)
+	}
+	// ID=22: 0.5*0.49 + 0.5*1.0 = 0.745 > ID=1: 0.5*0.70 + 0.5*0.0 = 0.35
+	if len(wideOut) != TopN || wideOut[0].Chunk.ID != 22 || wideOut[0].Final != 0.49 {
+		t.Fatalf("expected rank-22 item promoted to #1 with original Final=0.49 preserved, got %+v", wideOut)
+	}
+}

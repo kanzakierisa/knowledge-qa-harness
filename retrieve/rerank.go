@@ -18,6 +18,14 @@ type RerankResult struct {
 	RelevanceScore float64 `json:"relevance_score"`
 }
 
+const (
+	// RerankCandidateLimit 开启可选重排时传入 Cross-Encoder 的候选窗口大小（阶段 11 R1 扩窗至 Top 25）。
+	RerankCandidateLimit = 25
+	// RerankBlendWeight 凸组合中归一化重排分的权重，与 (1 - RerankBlendWeight) 的原融合分 Final 线性加权。
+	RerankBlendWeight = 0.5
+	rerankScoreEps    = 1e-6
+)
+
 // Reranker 抽象 Cross-Encoder 重排能力，便于单测注入替身与线上按环境变量开关接入。
 type Reranker interface {
 	Rerank(query string, documents []string, topN int) ([]RerankResult, error)
@@ -183,8 +191,9 @@ func (c *RerankClient) Rerank(query string, documents []string, topN int) ([]Rer
 	return results, nil
 }
 
-// RerankAndSelect 对候选 Top 15 执行可选 Cross-Encoder 重排（方案 A：保留原 Final 分用于阈值与歧义判定，
-// 仅用重排相关性对候选重排并填充 RerankScore），随后执行多标识符覆盖保底并截取 Top k；
+// RerankAndSelect 对候选 Top 25 执行可选 Cross-Encoder 重排（R1 方案）：
+// 严格保留原始 Final 分用于 0.35 拒答阈值与 0.08 跨项目歧义判定，仅使用本地凸组合分数
+// blend = 0.5*Final + 0.5*normRerankScore 重排候选窗口，随后经 ApplyMultiEntityCoverage 保底输出 Top k；
 // 若 reranker 为 nil 或调用失败则自动回落纯融合顺序 + 多标识符覆盖保底。
 func RerankAndSelect(question string, scored []MergedChunk, reranker Reranker, k int, minCoverageScore float64) []MergedChunk {
 	if k <= 0 || len(scored) == 0 {
@@ -194,7 +203,7 @@ func RerankAndSelect(question string, scored []MergedChunk, reranker Reranker, k
 		return ApplyMultiEntityCoverage(question, scored, k, minCoverageScore)
 	}
 
-	candLimit := MultiEntityCandidateLimit
+	candLimit := RerankCandidateLimit
 	if len(scored) < candLimit {
 		candLimit = len(scored)
 	}
@@ -219,28 +228,72 @@ func RerankAndSelect(question string, scored []MergedChunk, reranker Reranker, k
 		return ApplyMultiEntityCoverage(question, scored, k, minCoverageScore)
 	}
 
-	reordered := make([]MergedChunk, 0, candLimit)
-	seen := make([]bool, candLimit)
+	rawScores := make([]float64, candLimit)
+	hasScore := make([]bool, candLimit)
+	minR, maxR := 0.0, 0.0
+	anyScored := false
 	for _, r := range results {
-		if r.Index < 0 || r.Index >= candLimit || seen[r.Index] {
+		if r.Index < 0 || r.Index >= candLimit || hasScore[r.Index] {
 			continue
 		}
-		seen[r.Index] = true
-		item := window[r.Index]
-		item.RerankScore = r.RelevanceScore
-		reordered = append(reordered, item)
-	}
-	for i, item := range window {
-		if !seen[i] {
-			reordered = append(reordered, item)
+		hasScore[r.Index] = true
+		rawScores[r.Index] = r.RelevanceScore
+		window[r.Index].RerankScore = r.RelevanceScore
+		if !anyScored {
+			minR, maxR = r.RelevanceScore, r.RelevanceScore
+			anyScored = true
+		} else {
+			if r.RelevanceScore < minR {
+				minR = r.RelevanceScore
+			}
+			if r.RelevanceScore > maxR {
+				maxR = r.RelevanceScore
+			}
 		}
+	}
+	if !anyScored {
+		return ApplyMultiEntityCoverage(question, scored, k, minCoverageScore)
+	}
+
+	type blendedEntry struct {
+		chunk MergedChunk
+		blend float64
+	}
+	entries := make([]blendedEntry, candLimit)
+	span := maxR - minR
+	for i := 0; i < candLimit; i++ {
+		raw := rawScores[i]
+		if !hasScore[i] {
+			raw = minR
+		}
+		normR := 0.5
+		if span > rerankScoreEps {
+			normR = (raw - minR) / span
+			if normR < 0 {
+				normR = 0
+			} else if normR > 1 {
+				normR = 1
+			}
+		}
+		entries[i] = blendedEntry{
+			chunk: window[i],
+			blend: (1.0-RerankBlendWeight)*window[i].Final + RerankBlendWeight*normR,
+		}
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].blend > entries[j].blend
+	})
+
+	reordered := make([]MergedChunk, 0, len(scored))
+	for _, e := range entries {
+		reordered = append(reordered, e.chunk)
 	}
 	if len(scored) > candLimit {
 		reordered = append(reordered, scored[candLimit:]...)
 	}
 
-	log.Printf("[rerank] Top1 重排前后：orig_id=%d(final=%.4f) -> rerank_id=%d(final=%.4f, rerank=%.4f)",
-		scored[0].Chunk.ID, scored[0].Final, reordered[0].Chunk.ID, reordered[0].Final, reordered[0].RerankScore)
+	log.Printf("[rerank] Top1 凸组合重排前后：orig_id=%d(final=%.4f) -> top_id=%d(final=%.4f, rerank=%.4f, blend=%.4f)",
+		scored[0].Chunk.ID, scored[0].Final, entries[0].chunk.Chunk.ID, entries[0].chunk.Final, entries[0].chunk.RerankScore, entries[0].blend)
 
 	return ApplyMultiEntityCoverage(question, reordered, k, minCoverageScore)
 }
