@@ -112,3 +112,44 @@ func TestMergeWithOptionsGovernanceWeightsAndV1Compat(t *testing.T) {
 		t.Fatalf("V1 Merge vs MergeWithOptions mismatch: m1=%+v m2=%+v", m1, m2)
 	}
 }
+
+func TestApplyMultiEntityCoveragePromotesMissingIdentifierAndRespectsMinScore(t *testing.T) {
+	// 构造 8 个切片：前 5 段全部讲 c.Query（高分占满 Top 5），第 7 段讲 c.Param（>= 0.35）
+	scored := []MergedChunk{
+		{Chunk: store.Chunk{ID: 1, HeadingPath: "Gin 查询参数", Content: "c.Query 读取查询参数。"}, Final: 0.78},
+		{Chunk: store.Chunk{ID: 2, HeadingPath: "Gin 查询参数", Content: "c.Query 不存在返回空串。"}, Final: 0.72},
+		{Chunk: store.Chunk{ID: 3, HeadingPath: "Gin 表单", Content: "c.Query 与 PostForm 混用。"}, Final: 0.68},
+		{Chunk: store.Chunk{ID: 4, HeadingPath: "Gin 查询参数", Content: "c.Query 配合 DefaultQuery。"}, Final: 0.65},
+		{Chunk: store.Chunk{ID: 5, HeadingPath: "Gin 查询参数", Content: "c.Query 配合 GetQuery。"}, Final: 0.62},
+		{Chunk: store.Chunk{ID: 6, HeadingPath: "Gin 中间件", Content: "Gin 中间件使用 c.Next。"}, Final: 0.59},
+		{Chunk: store.Chunk{ID: 7, HeadingPath: "Gin 路由参数", Content: "路径中用 :name 声明，处理函数里用 c.Param 取值。"}, Final: 0.54},
+		{Chunk: store.Chunk{ID: 8, HeadingPath: "Gin 其他", Content: "Gin 安装与快速开始。"}, Final: 0.40},
+	}
+
+	got := ApplyMultiEntityCoverage("在 Gin 中 c.Query 与 c.Param 的区别是什么", scored, TopN, DefaultCoverageMinScore)
+	if len(got) != 5 {
+		t.Fatalf("expected 5 chunks, got %d", len(got))
+	}
+	if got[0].Chunk.ID != 1 {
+		t.Fatalf("Top 1 must remain unchanged, got ID=%d", got[0].Chunk.ID)
+	}
+	foundParam := false
+	for _, sc := range got {
+		if sc.Chunk.ID == 7 {
+			foundParam = true
+		}
+	}
+	if !foundParam {
+		t.Fatalf("expected chunk 7 (c.Param) promoted into Top 5, got %+v", got)
+	}
+
+	// 若第 7 段低于 minScore（0.35），不得强行塞入 Top 5（防止高分陷阱/低分噪音误放行）
+	lowScored := append([]MergedChunk(nil), scored...)
+	lowScored[6].Final = 0.30
+	gotLow := ApplyMultiEntityCoverage("在 Gin 中 c.Query 与 c.Param 的区别是什么", lowScored, TopN, DefaultCoverageMinScore)
+	for _, sc := range gotLow {
+		if sc.Chunk.ID == 7 {
+			t.Fatalf("chunk below minScore must NOT be promoted into Top 5: %+v", gotLow)
+		}
+	}
+}

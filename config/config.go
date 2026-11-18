@@ -20,6 +20,7 @@ type Config struct {
 	Chat          Endpoint // 对话模型接入
 	Embed         Endpoint // embedding 模型接入（可与对话不同服务商）
 	VLM           Endpoint // 可选：多模态视觉模型接入（扫描件 PDF / 图片转 Markdown）
+	Rerank        Endpoint // 可选：Cross-Encoder 重排接入（未配 RERANK_BASE_URL 时跳过重排）
 	ConvertEngine string   // 可选：native（默认纯 Go） | markitdown
 	MySQLDSN      string
 	HTTPAddr      string // 可选监听地址，便于与本机其他服务共存。
@@ -67,6 +68,21 @@ func Load() (*Config, error) {
 		BaseURL: getenv("VLM_BASE_URL", c.Chat.BaseURL),
 		APIKey:  getenv("VLM_API_KEY", c.Chat.APIKey),
 		Model:   strings.TrimSpace(os.Getenv("LLM_VLM_MODEL")),
+	}
+	// 可选 Rerank 端点：未配置 RERANK_BASE_URL 时跳过重排；API Key 缺省回落 EMBED_API_KEY / LLM_API_KEY
+	rerankBaseURL := strings.TrimSpace(os.Getenv("RERANK_BASE_URL"))
+	rerankKey := strings.TrimSpace(os.Getenv("RERANK_API_KEY"))
+	if rerankKey == "" {
+		rerankKey = c.Embed.APIKey
+	}
+	rerankModel := strings.TrimSpace(os.Getenv("RERANK_MODEL"))
+	if rerankModel == "" && rerankBaseURL != "" {
+		rerankModel = "gte-rerank-v2"
+	}
+	c.Rerank = Endpoint{
+		BaseURL: rerankBaseURL,
+		APIKey:  rerankKey,
+		Model:   rerankModel,
 	}
 	c.ConvertEngine = strings.ToLower(strings.TrimSpace(getenv("CONVERT_ENGINE", "native")))
 	return c, nil

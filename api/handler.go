@@ -35,8 +35,9 @@ type Handler struct {
 	Store     *store.Store
 	Embedder  *ingest.Embedder
 	Chat      *generate.ChatClient
-	Converter ingest.Converter // 可选：nil 时按环境变量初始化默认转换器
-	evalMu    sync.Mutex       // 同一时刻只允许一批评测，冲突请求返回 409
+	Converter ingest.Converter  // 可选：nil 时按环境变量初始化默认转换器
+	Reranker  retrieve.Reranker // 可选：nil 时跳过 Cross-Encoder 重排，使用纯融合排序
+	evalMu    sync.Mutex        // 同一时刻只允许一批评测，冲突请求返回 409
 }
 
 // NewRouter 装配路由。
@@ -96,11 +97,12 @@ type debugChunk struct {
 	ProjectSlug  string   `json:"project_slug,omitempty"`
 	DocLevel     string   `json:"doc_level,omitempty"`
 	DocStatus    string   `json:"doc_status,omitempty"`
-	VectorScore  float64  `json:"vector_score"`  // 向量余弦原始分（0~1）
-	BM25Raw      float64  `json:"bm25_raw"`      // BM25 原始分
-	KeywordScore float64  `json:"keyword_score"` // BM25 归一化分
-	Final        float64  `json:"final"`         // 融合分
-	MatchedTerms []string `json:"matched_terms"` // 命中的关键词
+	VectorScore  float64  `json:"vector_score"`           // 向量余弦原始分（0~1）
+	BM25Raw      float64  `json:"bm25_raw"`               // BM25 原始分
+	KeywordScore float64  `json:"keyword_score"`          // BM25 归一化分
+	Final        float64  `json:"final"`                  // 融合分
+	RerankScore  float64  `json:"rerank_score,omitempty"` // 可选：Cross-Encoder 重排得分
+	MatchedTerms []string `json:"matched_terms"`          // 命中的关键词
 }
 
 type ambiguityCandidate struct {
@@ -230,14 +232,18 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 	}
 
 	if !isAuto {
-		top := retrieve.MergeWithOptions(question, qVec, chunks, retrieve.TopN, retrieve.MergeOptions{ProjectSlug: reqSlug})
-		return h.finalizeAnswer(question, top, reqSlug, opts.Debug)
+		scoredProj := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{ProjectSlug: reqSlug})
+		if len(scoredProj) == 0 || scoredProj[0].Final < refuseThreshold {
+			return h.finalizeAnswer(question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts.Debug, false)
+		}
+		top := retrieve.RerankAndSelect(question, scoredProj, h.Reranker, retrieve.TopN, refuseThreshold)
+		return h.finalizeAnswer(question, top, reqSlug, opts.Debug, true)
 	}
 
 	scored := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{})
 	if len(scored) == 0 || scored[0].Final < refuseThreshold {
 		top := truncateMerged(scored, retrieve.TopN)
-		return h.finalizeAnswer(question, top, "", opts.Debug)
+		return h.finalizeAnswer(question, top, "", opts.Debug, false)
 	}
 
 	amb := detectCrossProjectAmbiguity(scored, refuseThreshold, retrieve.TopN)
@@ -245,8 +251,15 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		if opts.Compare {
 			comparisons := make([]comparisonResult, 0, len(amb.Ambiguity.Candidates))
 			for _, cand := range amb.Ambiguity.Candidates {
-				candTop := retrieve.MergeWithOptions(question, qVec, chunks, retrieve.TopN, retrieve.MergeOptions{ProjectSlug: cand.ProjectSlug})
-				candResp, _, err := h.finalizeAnswer(question, candTop, cand.ProjectSlug, opts.Debug)
+				candScored := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{ProjectSlug: cand.ProjectSlug})
+				var candTop []retrieve.MergedChunk
+				candPassed := len(candScored) > 0 && candScored[0].Final >= refuseThreshold
+				if candPassed {
+					candTop = retrieve.RerankAndSelect(question, candScored, h.Reranker, retrieve.TopN, refuseThreshold)
+				} else {
+					candTop = truncateMerged(candScored, retrieve.TopN)
+				}
+				candResp, _, err := h.finalizeAnswer(question, candTop, cand.ProjectSlug, opts.Debug, candPassed)
 				if err != nil {
 					return askResponse{}, amb.FilteredTop, err
 				}
@@ -285,11 +298,24 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		}, amb.FilteredTop, nil
 	}
 
-	return h.finalizeAnswer(question, amb.FilteredTop, amb.ProjectResolved, opts.Debug)
+	scopedScored := scored
+	if amb.ProjectResolved != "" {
+		scopedScored = make([]retrieve.MergedChunk, 0, len(scored))
+		for _, sc := range scored {
+			if sc.Chunk.ProjectSlug == amb.ProjectResolved || sc.Chunk.ProjectSlug == "shared" {
+				scopedScored = append(scopedScored, sc)
+			}
+		}
+	}
+	if len(scopedScored) == 0 || scopedScored[0].Final < refuseThreshold {
+		return h.finalizeAnswer(question, truncateMerged(scopedScored, retrieve.TopN), amb.ProjectResolved, opts.Debug, false)
+	}
+	filteredTop := retrieve.RerankAndSelect(question, scopedScored, h.Reranker, retrieve.TopN, refuseThreshold)
+	return h.finalizeAnswer(question, filteredTop, amb.ProjectResolved, opts.Debug, true)
 }
 
-func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, projectResolved string, debug bool) (askResponse, []retrieve.MergedChunk, error) {
-	if len(top) == 0 || top[0].Final < refuseThreshold {
+func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, projectResolved string, debug bool, thresholdPassed bool) (askResponse, []retrieve.MergedChunk, error) {
+	if len(top) == 0 || (!thresholdPassed && top[0].Final < refuseThreshold) {
 		log.Printf("[ask] 阈值拒答（Top1 融合分 %.4f < %.2f），未调用 LLM：%q",
 			top1Final(top), refuseThreshold, question)
 		return askResponse{
@@ -572,6 +598,7 @@ func buildDebug(top []retrieve.MergedChunk) []debugChunk {
 			BM25Raw:      round4(sc.BM25Raw),
 			KeywordScore: round4(sc.KeywordScore),
 			Final:        round4(sc.Final),
+			RerankScore:  round4(sc.RerankScore),
 			MatchedTerms: matched,
 		})
 	}

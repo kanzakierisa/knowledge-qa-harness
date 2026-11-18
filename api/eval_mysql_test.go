@@ -271,3 +271,231 @@ func TestEvalHTTPMySQL(t *testing.T) {
 		t.Fatalf("两批加一次ask应各调用7次：embedding=%d chat=%d", embeddings.Load(), chats.Load())
 	}
 }
+
+func TestEvalRunSetsAndProjectIsolationMySQL(t *testing.T) {
+	dsn := os.Getenv("KNOWLEDGE_QA_TEST_MYSQL_DSN")
+	if dsn == "" {
+		t.Skip("设置 KNOWLEDGE_QA_TEST_MYSQL_DSN 后运行 V2 评测集与项目隔离 HTTP 集成测试")
+	}
+	cfg, err := mysql.ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("测试DSN格式不正确")
+	}
+	if !regexp.MustCompile(`^[A-Za-z0-9_]+_test$`).MatchString(cfg.DBName) {
+		t.Fatal("测试库名必须为安全标识符且以 _test 结尾")
+	}
+	name := strings.TrimSuffix(cfg.DBName, "_test") + "_v2_eval_api_test"
+	cfg.DBName = ""
+	admin, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { admin.Close() })
+	if _, err := admin.Exec("CREATE DATABASE `" + name + "` DEFAULT CHARSET utf8mb4"); err != nil {
+		t.Fatalf("V2 API 评测集成测试只能创建原本不存在的专用库：%v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = admin.Exec("DROP DATABASE `" + name + "`")
+	})
+
+	cfg.DBName = name
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	raw001, err := os.ReadFile("../migrations/001_init.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range strings.Split(string(raw001), ";") {
+		if strings.Contains(statement, "CREATE TABLE") {
+			if _, err := db.Exec(statement); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	raw002, err := os.ReadFile("../migrations/002_v2_schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyV2SchemaForAPITest(t, db, string(raw002))
+
+	st, err := store.New(cfg.FormatDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+
+	if _, err := st.CreateProject("alpha", "Alpha", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateProject("beta", "Beta", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.InsertOrReplaceDocument(store.InsertDocParams{
+		ProjectSlug: "alpha",
+		Filename:    "port.md",
+		Content:     "Alpha 服务默认端口 8091",
+		SourceType:  "md",
+		ContentHash: store.SHA256Hex([]byte("alpha-port")),
+		Chunks:      []store.ChunkInput{{HeadingPath: "Port", Content: "Alpha 服务默认端口 8091", Embedding: "[1,0]"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.InsertOrReplaceDocument(store.InsertDocParams{
+		ProjectSlug: "beta",
+		Filename:    "port.md",
+		Content:     "Beta 服务默认端口 9090",
+		SourceType:  "md",
+		ContentHash: store.SHA256Hex([]byte("beta-port")),
+		Chunks:      []store.ChunkInput{{HeadingPath: "Port", Content: "Beta 服务默认端口 9090", Embedding: "[1,0]"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	alphaChunkID, err := st.FindGoldChunkInProject("alpha", "port.md", "Port", "8091")
+	if err != nil {
+		t.Fatal(err)
+	}
+	betaChunkID, err := st.FindGoldChunkInProject("beta", "port.md", "Port", "9090")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := st.AppendEvalQuestions([]store.EvalQuestion{
+		{
+			Question:    "基线端口问题",
+			GoldAnswer:  "Alpha 8091",
+			GoldChunkID: &alphaChunkID,
+			ProjectSlug: "alpha",
+			QuestionSet: "base52",
+		},
+		{
+			Question:    "盲测端口问题",
+			GoldAnswer:  "Beta 9090",
+			GoldChunkID: &betaChunkID,
+			ProjectSlug: "beta",
+			QuestionSet: "holdout",
+			Category:    "project_governance",
+		},
+		{
+			Question:     "高分陷阱问题",
+			GoldAnswer:   "文档中没有依据",
+			ShouldRefuse: true,
+			ProjectSlug:  "alpha",
+			QuestionSet:  "holdout",
+			Category:     "near_miss_refusal",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/embeddings":
+			io.WriteString(w, `{"data":[{"embedding":[1,0]}]}`)
+		case "/chat/completions":
+			var req struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.Messages) != 1 {
+				http.Error(w, "invalid chat req", http.StatusBadRequest)
+				return
+			}
+			prompt := req.Messages[0].Content
+			answer := generate.RefuseAnswer
+			switch {
+			case strings.Contains(prompt, "问题：基线端口问题"):
+				if !strings.Contains(prompt, "8091") || strings.Contains(prompt, "9090") {
+					http.Error(w, "alpha 隔离失败", http.StatusBadRequest)
+					return
+				}
+				answer = "Alpha 默认端口 8091 [1]。"
+			case strings.Contains(prompt, "问题：盲测端口问题"):
+				if !strings.Contains(prompt, "9090") || strings.Contains(prompt, "8091") {
+					http.Error(w, "beta 隔离失败", http.StatusBadRequest)
+					return
+				}
+				answer = "Beta 默认端口 9090 [1]。"
+			case strings.Contains(prompt, "问题：高分陷阱问题"):
+				answer = generate.RefuseAnswer
+			}
+			json.NewEncoder(w).Encode(map[string]any{"choices": []any{
+				map[string]any{"message": map[string]string{"role": "assistant", "content": answer}},
+			}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(provider.Close)
+
+	h := &Handler{
+		Store:    st,
+		Embedder: ingest.NewEmbedder(provider.URL, "fixture-key", "fixture-embedding"),
+		Chat:     generate.NewChatClient(provider.URL, "fixture-key", "fixture-chat"),
+	}
+	server := httptest.NewServer(NewRouter(h))
+	t.Cleanup(server.Close)
+
+	post := func(path, body string, status int) []byte {
+		t.Helper()
+		resp, err := http.Post(server.URL+path, "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		raw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != status {
+			t.Fatalf("POST %s status=%d expected=%d body=%s", path, resp.StatusCode, status, raw)
+		}
+		return raw
+	}
+
+	post("/api/eval/run?set=feedback", "", http.StatusBadRequest)
+
+	var baseReport eval.Report
+	if err := json.Unmarshal(post("/api/eval/run?set=base52", "", http.StatusOK), &baseReport); err != nil {
+		t.Fatal(err)
+	}
+	if baseReport.QuestionSet != "base52" || len(baseReport.Details) != 1 || baseReport.Details[0].ProjectSlug != "alpha" {
+		t.Fatalf("base52 report mismatch: %+v", baseReport)
+	}
+
+	var holdoutReport eval.Report
+	if err := json.Unmarshal(post("/api/eval/run?set=holdout", "", http.StatusOK), &holdoutReport); err != nil {
+		t.Fatal(err)
+	}
+	if holdoutReport.QuestionSet != "holdout" || len(holdoutReport.Details) != 2 || holdoutReport.HitRate != 1 || holdoutReport.RefusalRate != 1 {
+		t.Fatalf("holdout report mismatch: %+v", holdoutReport)
+	}
+	if holdoutReport.Categories["project_governance"].HitCount != 1 || holdoutReport.Categories["near_miss_refusal"].RefusalCorrectCount != 1 {
+		t.Fatalf("holdout category breakdown mismatch: %+v", holdoutReport.Categories)
+	}
+
+	var allReport eval.Report
+	if err := json.Unmarshal(post("/api/eval/run?set=all", "", http.StatusOK), &allReport); err != nil {
+		t.Fatal(err)
+	}
+	if allReport.QuestionSet != "all" || len(allReport.Details) != 3 {
+		t.Fatalf("all report mismatch: %+v", allReport)
+	}
+
+	var markBase, markHoldout eval.MarkResult
+	if err := json.Unmarshal(post("/api/eval/mark", fmt.Sprintf(`{"run_id":%d,"usable":false}`, baseReport.Details[0].ID), http.StatusOK), &markBase); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(post("/api/eval/mark", fmt.Sprintf(`{"run_id":%d,"usable":true}`, holdoutReport.Details[0].ID), http.StatusOK), &markHoldout); err != nil {
+		t.Fatal(err)
+	}
+	if markBase.UsableCount != 0 || markBase.MarkedCount != 1 || markHoldout.UsableCount != 1 || markHoldout.MarkedCount != 1 {
+		t.Fatalf("batch isolation across ?set= runs failed: base=%+v holdout=%+v", markBase, markHoldout)
+	}
+}

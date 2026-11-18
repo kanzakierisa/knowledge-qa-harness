@@ -8,6 +8,7 @@ import (
 	"knowledge-qa/config"
 	"knowledge-qa/generate"
 	"knowledge-qa/ingest"
+	"knowledge-qa/retrieve"
 	"knowledge-qa/store"
 )
 
@@ -29,11 +30,17 @@ func main() {
 	if cfg.VLM.Model != "" {
 		vlm = ingest.NewVLMClient(cfg.VLM.BaseURL, cfg.VLM.APIKey, cfg.VLM.Model)
 	}
+	var reranker retrieve.Reranker
+	if cfg.Rerank.BaseURL != "" {
+		reranker = retrieve.NewRerankClient(cfg.Rerank.BaseURL, cfg.Rerank.APIKey, cfg.Rerank.Model)
+		log.Printf("重排模型：%s @ %s", cfg.Rerank.Model, cfg.Rerank.BaseURL)
+	}
 	h := &api.Handler{
 		Store:     st,
 		Embedder:  ingest.NewEmbedder(cfg.Embed.BaseURL, cfg.Embed.APIKey, cfg.Embed.Model),
 		Chat:      generate.NewChatClient(cfg.Chat.BaseURL, cfg.Chat.APIKey, cfg.Chat.Model),
 		Converter: ingest.NewConverter(ingest.ConvertOptions{Engine: cfg.ConvertEngine, VLM: vlm}),
+		Reranker:  reranker,
 	}
 
 	r := api.NewRouter(h)

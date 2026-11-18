@@ -250,3 +250,191 @@ func TestValidateEvalItemsAllowsAnyStage6Count(t *testing.T) {
 		t.Fatal("空列表不能通过校验")
 	}
 }
+
+func TestEvalV2SetAndBatchMySQL(t *testing.T) {
+	dsn := os.Getenv("KNOWLEDGE_QA_TEST_MYSQL_DSN")
+	if dsn == "" {
+		t.Skip("设置 KNOWLEDGE_QA_TEST_MYSQL_DSN 后运行 V2 评测集合与批次隔离 MySQL 集成测试")
+	}
+	cfg, err := mysql.ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("测试DSN格式不正确")
+	}
+	if !regexp.MustCompile(`^[A-Za-z0-9_]+_test$`).MatchString(cfg.DBName) {
+		t.Fatal("测试库名必须为安全标识符且以 _test 结尾")
+	}
+	name := strings.TrimSuffix(cfg.DBName, "_test") + "_v2_eval_store_test"
+	cfg.DBName = ""
+	admin, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { admin.Close() })
+	if _, err := admin.Exec("CREATE DATABASE `" + name + "` DEFAULT CHARSET utf8mb4"); err != nil {
+		t.Fatalf("创建专用测试库失败：%v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = admin.Exec("DROP DATABASE `" + name + "`")
+	})
+
+	cfg.DBName = name
+	st, err := New(cfg.FormatDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+
+	raw001, err := os.ReadFile("../migrations/001_init.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stmt := range strings.Split(string(raw001), ";") {
+		if strings.Contains(stmt, "CREATE TABLE") {
+			if _, err := st.db.Exec(stmt); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	raw002, err := os.ReadFile("../migrations/002_v2_schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	applyV2SchemaForTest(t, st.db, string(raw002))
+
+	if _, err := st.CreateProject("alpha", "Alpha", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateProject("beta", "Beta", ""); err != nil {
+		t.Fatal(err)
+	}
+	resA, err := st.InsertOrReplaceDocument(InsertDocParams{
+		ProjectSlug: "alpha",
+		Filename:    "service.md",
+		Content:     "Alpha 端口 8091",
+		SourceType:  "md",
+		ContentHash: SHA256Hex([]byte("alpha-svc")),
+		Chunks:      []ChunkInput{{HeadingPath: "Port > Config", Content: "Alpha 端口 8091", Embedding: "[1,0]"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resB, err := st.InsertOrReplaceDocument(InsertDocParams{
+		ProjectSlug: "beta",
+		Filename:    "service.md",
+		Content:     "Beta 端口 9090",
+		SourceType:  "md",
+		ContentHash: SHA256Hex([]byte("beta-svc")),
+		Chunks:      []ChunkInput{{HeadingPath: "Port > Config", Content: "Beta 端口 9090", Embedding: "[1,0]"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	alphaChunkID, alphaDocID, err := st.FindGoldChunkWithDoc("alpha", "service.md", "Port > Config", "Alpha 端口 8091")
+	if err != nil || alphaDocID != resA.DocumentID {
+		t.Fatalf("FindGoldChunkWithDoc alpha failed: chunk=%d doc=%d err=%v", alphaChunkID, alphaDocID, err)
+	}
+	betaChunkID, err := st.FindGoldChunkInProject("beta", "service.md", "Port > Config", "Beta 端口 9090")
+	if err != nil || betaChunkID == alphaChunkID {
+		t.Fatalf("FindGoldChunkInProject beta should isolate from alpha: beta=%d alpha=%d err=%v", betaChunkID, alphaChunkID, err)
+	}
+	if _, err := st.FindGoldChunkInProject("alpha", "service.md", "Port > Config", "Beta 端口 9090"); err == nil {
+		t.Fatal("FindGoldChunkInProject must not cross project boundaries")
+	}
+
+	inserted, err := st.AppendEvalQuestions([]EvalQuestion{
+		{
+			Question:    "base52 测试题",
+			GoldAnswer:  "Alpha 端口 8091",
+			GoldChunkID: &alphaChunkID,
+			ProjectSlug: "alpha",
+			QuestionSet: "base52",
+		},
+		{
+			Question:    "holdout 测试题",
+			GoldAnswer:  "Beta 端口 9090",
+			GoldChunkID: &betaChunkID,
+			ProjectSlug: "beta",
+			QuestionSet: "holdout",
+			SourceDocID: &resB.DocumentID,
+			Category:    "project_governance",
+		},
+		{
+			Question:     "holdout 高分陷阱题",
+			GoldAnswer:   "文档中没有依据",
+			ShouldRefuse: true,
+			QuestionSet:  "holdout",
+			Category:     "near_miss_refusal",
+		},
+	})
+	if err != nil || inserted != 3 {
+		t.Fatalf("expected 3 inserted eval questions, got %d err=%v", inserted, err)
+	}
+
+	if qs, err := st.EvalQuestionsBySet("base52"); err != nil || len(qs) != 1 || qs[0].ProjectSlug != "alpha" {
+		t.Fatalf("base52 filter mismatch: %+v err=%v", qs, err)
+	}
+	if qs, err := st.EvalQuestionsBySet("holdout"); err != nil || len(qs) != 2 || qs[0].Category != "project_governance" || qs[1].Category != "near_miss_refusal" {
+		t.Fatalf("holdout filter mismatch: %+v err=%v", qs, err)
+	}
+	if qs, err := st.EvalQuestionsBySet("feedback"); err != nil || len(qs) != 0 {
+		t.Fatalf("feedback filter should be empty: %+v err=%v", qs, err)
+	}
+	if qs, err := st.EvalQuestionsBySet("all"); err != nil || len(qs) != 3 {
+		t.Fatalf("all filter mismatch: %+v err=%v", qs, err)
+	}
+	if _, err := st.EvalQuestionsBySet("unknown"); !errors.Is(err, ErrInvalidEvalSet) {
+		t.Fatalf("expected ErrInvalidEvalSet, got %v", err)
+	}
+
+	hit := true
+	citOK := true
+	baseRuns, err := st.SaveEvalRuns([]EvalRun{{
+		Question:          "base52 测试题",
+		QuestionID:        1,
+		GoldAnswer:        "Alpha 端口 8091",
+		GoldChunkID:       &alphaChunkID,
+		ProjectSlug:       "alpha",
+		QuestionSet:       "base52",
+		BatchID:           "batch-base52-1",
+		RetrievedChunkIDs: []int64{alphaChunkID},
+		Answer:            "Alpha 端口 8091 [1]",
+		Hit:               &hit,
+		CitationOK:        &citOK,
+	}})
+	if err != nil || len(baseRuns) != 1 {
+		t.Fatalf("SaveEvalRuns base52 failed: %+v err=%v", baseRuns, err)
+	}
+	holdRuns, err := st.SaveEvalRuns([]EvalRun{{
+		Question:          "holdout 测试题",
+		QuestionID:        2,
+		GoldAnswer:        "Beta 端口 9090",
+		GoldChunkID:       &betaChunkID,
+		ProjectSlug:       "beta",
+		QuestionSet:       "holdout",
+		Category:          "project_governance",
+		BatchID:           "batch-holdout-1",
+		RetrievedChunkIDs: []int64{betaChunkID},
+		Answer:            "Beta 端口 9090 [1]",
+		Hit:               &hit,
+		CitationOK:        &citOK,
+	}})
+	if err != nil || len(holdRuns) != 1 {
+		t.Fatalf("SaveEvalRuns holdout failed: %+v err=%v", holdRuns, err)
+	}
+
+	if err := st.MarkEvalRun(baseRuns[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.MarkEvalRun(holdRuns[0].ID, true); err != nil {
+		t.Fatal(err)
+	}
+	mB, uB, err := st.EvalUsableSummaryForRun(baseRuns[0].ID)
+	if err != nil || mB != 1 || uB != 0 {
+		t.Fatalf("base52 batch isolation failed: marked=%d usable=%d err=%v", mB, uB, err)
+	}
+	mH, uH, err := st.EvalUsableSummaryForRun(holdRuns[0].ID)
+	if err != nil || mH != 1 || uH != 1 {
+		t.Fatalf("holdout batch isolation failed: marked=%d usable=%d err=%v", mH, uH, err)
+	}
+}

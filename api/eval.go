@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,8 +18,11 @@ type evalHTTPHandler struct {
 }
 
 func newEvalHTTPHandler(h *Handler) *evalHTTPHandler {
-	ask := func(question string) (eval.Answer, error) {
-		resp, top, err := h.answerQuestion(question, false)
+	ask := func(question, projectSlug string) (eval.Answer, error) {
+		resp, top, err := h.answerQuestionWithOptions(question, askOptions{
+			Debug:       false,
+			ProjectSlug: projectSlug,
+		})
 		ids := make([]int64, 0, len(top))
 		for _, chunk := range top {
 			ids = append(ids, chunk.Chunk.ID)
@@ -31,21 +35,33 @@ func newEvalHTTPHandler(h *Handler) *evalHTTPHandler {
 			CitationLimit:     len(top),
 		}, err
 	}
-	return &evalHTTPHandler{evaluator: eval.New(h.Store, ask), parent: h}
+	return &evalHTTPHandler{evaluator: eval.NewWithProject(h.Store, ask), parent: h}
 }
 
-// Run 执行全部金标题并返回四个指标与逐题明细；并发批次直接返回 409。
+// Run 执行指定评测集（默认 base52，支持 ?set=base52|holdout|feedback|all）；并发批次直接返回 409。
 func (h *evalHTTPHandler) Run(c *gin.Context) {
 	if !h.parent.evalMu.TryLock() {
 		c.JSON(http.StatusConflict, gin.H{"error": eval.ErrConcurrent.Error()})
 		return
 	}
 	defer h.parent.evalMu.Unlock()
-	report, err := h.evaluator.Run()
+
+	set := strings.ToLower(strings.TrimSpace(c.DefaultQuery("set", "base52")))
+	switch set {
+	case "base52", "holdout", "feedback", "all":
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": store.ErrInvalidEvalSet.Error()})
+		return
+	}
+
+	report, err := h.evaluator.RunSet(set)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, eval.ErrConcurrent) {
+		switch {
+		case errors.Is(err, eval.ErrConcurrent):
 			status = http.StatusConflict
+		case errors.Is(err, store.ErrInvalidEvalSet), errors.Is(err, eval.ErrEmptyEvalSet):
+			status = http.StatusBadRequest
 		}
 		c.JSON(status, gin.H{"error": err.Error()})
 		return

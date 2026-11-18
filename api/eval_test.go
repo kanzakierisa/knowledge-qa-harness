@@ -37,3 +37,19 @@ func TestEvalRunRejectsConcurrentBatch(t *testing.T) {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
 }
+
+func TestEvalRunRejectsInvalidSet(t *testing.T) {
+	router := NewRouter(&Handler{})
+	for _, target := range []string{
+		"/api/eval/run?set=invalid",
+		"/api/eval/run?set=unknown",
+	} {
+		t.Run(target, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, target, nil))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400 for %s, got %d body=%s", target, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}

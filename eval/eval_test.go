@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"errors"
 	"testing"
 
 	"knowledge-qa/store"
@@ -65,5 +66,55 @@ func TestContainsChunk(t *testing.T) {
 	}
 	if containsChunk([]int64{1, 2}, &gold) || containsChunk([]int64{42}, nil) {
 		t.Fatal("缺少 gold 或 gold 为空时不得命中")
+	}
+}
+
+func TestSummarizeWithSetCategories(t *testing.T) {
+	runs := []store.EvalRun{
+		// near_miss_refusal: 全为应拒答且拒答正确 -> HitRate/CitationRate/UsableRate 为 nil，RefusalRate 为 1
+		{Category: "near_miss_refusal", ShouldRefuse: true, Refused: true},
+		{Category: "near_miss_refusal", ShouldRefuse: true, Refused: true},
+		// cross_para_compare: 1 题命中且可用，1 题未命中且误拒
+		{Category: "cross_para_compare", Hit: boolPtr(true), CitationOK: boolPtr(true), Refused: false, Usable: boolPtr(true)},
+		{Category: "cross_para_compare", Hit: boolPtr(false), Refused: true},
+		// 无 category 不进入 Categories
+		{Category: "", ShouldRefuse: true, Refused: true},
+	}
+
+	report := SummarizeWithSet(runs, "holdout")
+	if report.QuestionSet != "holdout" {
+		t.Fatalf("expected question_set holdout, got %q", report.QuestionSet)
+	}
+	if len(report.Categories) != 2 {
+		t.Fatalf("expected 2 non-empty categories, got %+v", report.Categories)
+	}
+
+	nm := report.Categories["near_miss_refusal"]
+	if nm.QuestionCount != 2 || nm.ShouldRefuseCount != 2 || nm.RefusalCorrectCount != 2 {
+		t.Fatalf("unexpected near_miss_refusal counts: %+v", nm)
+	}
+	if nm.HitRate != nil || nm.CitationRate != nil || nm.UsableRate != nil {
+		t.Fatalf("expected nil HitRate/CitationRate/UsableRate for pure refusal category, got %+v", nm)
+	}
+	if nm.RefusalRate == nil || *nm.RefusalRate != 1.0 {
+		t.Fatalf("expected refusal_rate=1.0, got %+v", nm.RefusalRate)
+	}
+
+	cp := report.Categories["cross_para_compare"]
+	if cp.QuestionCount != 2 || cp.AnswerableCount != 2 || cp.FalseRefusalCount != 1 || cp.AnsweredCount != 1 {
+		t.Fatalf("unexpected cross_para_compare counts: %+v", cp)
+	}
+	if cp.HitRate == nil || *cp.HitRate != 0.5 || cp.CitationRate == nil || *cp.CitationRate != 1.0 || cp.UsableRate == nil || *cp.UsableRate != 1.0 || cp.RefusalRate != nil {
+		t.Fatalf("unexpected cross_para_compare rates: %+v", cp)
+	}
+}
+
+func TestRunSetRejectsInvalidSet(t *testing.T) {
+	ev := NewWithProject(nil, func(_, _ string) (Answer, error) {
+		t.Fatal("ask function should not be called on invalid set")
+		return Answer{}, nil
+	})
+	if _, err := ev.RunSet("invalid-set"); !errors.Is(err, store.ErrInvalidEvalSet) {
+		t.Fatalf("expected ErrInvalidEvalSet, got %v", err)
 	}
 }

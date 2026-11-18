@@ -126,6 +126,14 @@ BEGIN
   ) THEN
     ALTER TABLE eval_questions ADD COLUMN category VARCHAR(64) NOT NULL DEFAULT '';
   END IF;
+
+  -- eval_runs.batch_id（阶段 11：精确隔离 base52 / holdout / feedback / all 评测批次）
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'eval_runs' AND COLUMN_NAME = 'batch_id'
+  ) THEN
+    ALTER TABLE eval_runs ADD COLUMN batch_id VARCHAR(64) NOT NULL DEFAULT '';
+  END IF;
 END$$
 DELIMITER ;
 

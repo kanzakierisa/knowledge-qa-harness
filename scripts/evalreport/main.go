@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -67,7 +68,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	report := eval.Summarize(runs)
+	set := ""
+	if len(runs) > 0 {
+		set = runs[0].QuestionSet
+		for _, r := range runs[1:] {
+			if r.QuestionSet != set {
+				set = "all"
+				break
+			}
+		}
+	}
+	report := eval.SummarizeWithSet(runs, set)
 	eval.LogReport(report)
 	if *format == "markdown" {
 		printMarkdown(report)
@@ -106,6 +117,26 @@ func printMarkdown(report eval.Report) {
 		report.HitRate*100, report.CitationRate*100, rateText(report.UsableRate), report.RefusalRate*100)
 	fmt.Printf("\n共 %d 题（可作答 %d 题，误拒 %d 题）；系统非拒答 %d 条；人工已标注 %d 条、待标注 %d 条。答案可用率按已标注回答计算，未标注时为 NULL。\n",
 		report.Counts.QuestionCount, report.Counts.AnswerableCount, report.Counts.FalseRefusalCount, report.Counts.AnsweredCount, report.Counts.MarkedCount, report.Counts.PendingCount)
+	if len(report.Categories) > 0 {
+		fmt.Println("\n## 分类小计")
+		fmt.Println("\n| 分类 | 题数 | 检索命中率 | 引用准确率 | 答案可用率 | 拒答正确率 | 误拒数 |")
+		fmt.Println("|---|---|---|---|---|---|---|")
+		keys := make([]string, 0, len(report.Categories))
+		for k := range report.Categories {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			cs := report.Categories[k]
+			fmt.Printf("| %s | %d | %s (%d/%d) | %s | %s (%d/%d) | %s (%d/%d) | %d |\n",
+				k, cs.QuestionCount,
+				rateText(cs.HitRate), cs.HitCount, cs.AnswerableCount,
+				rateText(cs.CitationRate),
+				rateText(cs.UsableRate), cs.UsableCount, cs.MarkedCount,
+				rateText(cs.RefusalRate), cs.RefusalCorrectCount, cs.ShouldRefuseCount,
+				cs.FalseRefusalCount)
+		}
+	}
 	fmt.Println("\n| run_id | 问题 | 应拒答 | gold_chunk_id | 检索 Top 5 | 实际拒答 | hit | citation_ok | usable | 回答 |")
 	fmt.Println("|---|---|---|---|---|---|---|---|---|---|")
 	for _, row := range report.Details {

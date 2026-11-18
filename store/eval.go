@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // EvalQuestion 是人工确认后的金标题；拒答题没有标准切片。
@@ -16,6 +17,10 @@ type EvalQuestion struct {
 	GoldAnswer   string `json:"gold_answer"`
 	ShouldRefuse bool   `json:"should_refuse"`
 	GoldChunkID  *int64 `json:"gold_chunk_id"`
+	ProjectSlug  string `json:"project_slug,omitempty"`
+	QuestionSet  string `json:"question_set,omitempty"`
+	SourceDocID  *int64 `json:"source_doc_id,omitempty"`
+	Category     string `json:"category,omitempty"`
 }
 
 // EvalRun 保留原始评测结果和三态评分，nil 表示不适用或尚未人工标注。
@@ -26,6 +31,10 @@ type EvalRun struct {
 	GoldAnswer        string  `json:"gold_answer"`
 	ShouldRefuse      bool    `json:"should_refuse"`
 	GoldChunkID       *int64  `json:"gold_chunk_id"`
+	ProjectSlug       string  `json:"project_slug,omitempty"`
+	QuestionSet       string  `json:"question_set,omitempty"`
+	Category          string  `json:"category,omitempty"`
+	BatchID           string  `json:"batch_id,omitempty"`
 	RetrievedChunkIDs []int64 `json:"retrieved_chunk_ids"`
 	Answer            string  `json:"answer"`
 	Refused           bool    `json:"refused"`
@@ -37,9 +46,10 @@ type EvalRun struct {
 var (
 	ErrEvalRunNotFound = errors.New("评测记录不存在")
 	ErrEvalRunRefused  = errors.New("拒答记录不参与答案可用性标注")
+	ErrInvalidEvalSet  = errors.New("question_set 仅支持 base52、holdout、feedback、all")
 )
 
-func scanEvalQuestions(rows *sql.Rows) ([]EvalQuestion, error) {
+func scanEvalQuestionsV1(rows *sql.Rows) ([]EvalQuestion, error) {
 	defer rows.Close()
 	out := make([]EvalQuestion, 0)
 	for rows.Next() {
@@ -56,46 +66,127 @@ func scanEvalQuestions(rows *sql.Rows) ([]EvalQuestion, error) {
 	return out, rows.Err()
 }
 
+func scanEvalQuestionsV2(rows *sql.Rows) ([]EvalQuestion, error) {
+	defer rows.Close()
+	out := make([]EvalQuestion, 0)
+	for rows.Next() {
+		var q EvalQuestion
+		var gold, srcDoc sql.NullInt64
+		if err := rows.Scan(&q.ID, &q.Question, &q.GoldAnswer, &q.ShouldRefuse, &gold,
+			&q.ProjectSlug, &q.QuestionSet, &srcDoc, &q.Category); err != nil {
+			return nil, err
+		}
+		if gold.Valid {
+			q.GoldChunkID = &gold.Int64
+		}
+		if srcDoc.Valid {
+			v := srcDoc.Int64
+			q.SourceDocID = &v
+		}
+		out = append(out, q)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) AllEvalQuestions() ([]EvalQuestion, error) {
-	rows, err := s.db.Query("SELECT id, question, gold_answer, should_refuse, gold_chunk_id FROM eval_questions ORDER BY id")
+	rows, err := s.db.Query(`SELECT id, question, gold_answer, should_refuse, gold_chunk_id,
+		project_slug, question_set, source_doc_id, category FROM eval_questions ORDER BY id`)
 	if err != nil {
+		if IsV1SchemaMissingError(err) {
+			v1Rows, v1Err := s.db.Query("SELECT id, question, gold_answer, should_refuse, gold_chunk_id FROM eval_questions ORDER BY id")
+			if v1Err != nil {
+				return nil, v1Err
+			}
+			return scanEvalQuestionsV1(v1Rows)
+		}
 		return nil, err
 	}
-	return scanEvalQuestions(rows)
+	return scanEvalQuestionsV2(rows)
+}
+
+// EvalQuestionsBySet 按评测分组读取金标题；支持 base52、holdout、feedback、all（空串等价于 all）。
+func (s *Store) EvalQuestionsBySet(questionSet string) ([]EvalQuestion, error) {
+	set := strings.ToLower(strings.TrimSpace(questionSet))
+	if set == "" || set == "all" {
+		return s.AllEvalQuestions()
+	}
+	switch set {
+	case "base52", "holdout", "feedback":
+	default:
+		return nil, ErrInvalidEvalSet
+	}
+
+	rows, err := s.db.Query(`SELECT id, question, gold_answer, should_refuse, gold_chunk_id,
+		project_slug, question_set, source_doc_id, category
+		FROM eval_questions WHERE question_set = ? ORDER BY id`, set)
+	if err != nil {
+		if IsV1SchemaMissingError(err) {
+			if set == "base52" {
+				return s.AllEvalQuestions()
+			}
+			return []EvalQuestion{}, nil
+		}
+		return nil, err
+	}
+	return scanEvalQuestionsV2(rows)
 }
 
 // FindGoldChunk 用文档、标题和原文锚点解析实际 ID，避免把重导入后变化的自增 ID 写死。
 func (s *Store) FindGoldChunk(filename, heading, anchor string) (int64, error) {
+	chunkID, _, err := s.FindGoldChunkWithDoc("", filename, heading, anchor)
+	return chunkID, err
+}
+
+// FindGoldChunkInProject 在指定项目（为空时不限项目）内解析标准切片 ID。
+func (s *Store) FindGoldChunkInProject(projectSlug, filename, heading, anchor string) (int64, error) {
+	chunkID, _, err := s.FindGoldChunkWithDoc(projectSlug, filename, heading, anchor)
+	return chunkID, err
+}
+
+// FindGoldChunkWithDoc 解析标准切片 ID 及其所属 document_id，供 V2 多项目评测绑定 source_doc_id。
+func (s *Store) FindGoldChunkWithDoc(projectSlug, filename, heading, anchor string) (chunkID int64, docID int64, err error) {
 	if filename == "" || heading == "" || anchor == "" {
-		return 0, errors.New("定位标准切片必须提供文档名、标题和原文锚点")
+		return 0, 0, errors.New("定位标准切片必须提供文档名、标题和原文锚点")
 	}
-	rows, err := s.db.Query(`SELECT c.id, c.content FROM chunks c
-		JOIN documents d ON d.id = c.document_id
-		WHERE d.filename = ? AND c.heading_path = ? ORDER BY c.id`, filename, heading)
+	slug := strings.TrimSpace(projectSlug)
+	var rows *sql.Rows
+	if slug != "" {
+		rows, err = s.db.Query(`SELECT c.id, c.document_id, c.content FROM chunks c
+			JOIN documents d ON d.id = c.document_id
+			JOIN projects p ON p.id = d.project_id
+			WHERE p.slug = ? AND d.filename = ? AND c.heading_path = ? ORDER BY c.id`, slug, filename, heading)
+	} else {
+		rows, err = s.db.Query(`SELECT c.id, c.document_id, c.content FROM chunks c
+			JOIN documents d ON d.id = c.document_id
+			WHERE d.filename = ? AND c.heading_path = ? ORDER BY c.id`, filename, heading)
+	}
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	defer rows.Close()
-	var found int64
 	count := 0
 	for rows.Next() {
-		var id int64
+		var id, dID int64
 		var content string
-		if err := rows.Scan(&id, &content); err != nil {
-			return 0, err
+		if err := rows.Scan(&id, &dID, &content); err != nil {
+			return 0, 0, err
 		}
 		if strings.Contains(content, anchor) {
-			found = id
+			chunkID = id
+			docID = dID
 			count++
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if count != 1 {
-		return 0, fmt.Errorf("标准切片匹配 %d 条，必须唯一：%s / %s", count, filename, heading)
+		if slug != "" {
+			return 0, 0, fmt.Errorf("标准切片匹配 %d 条，必须唯一：%s / %s / %s", count, slug, filename, heading)
+		}
+		return 0, 0, fmt.Errorf("标准切片匹配 %d 条，必须唯一：%s / %s", count, filename, heading)
 	}
-	return found, nil
+	return chunkID, docID, nil
 }
 
 // validateEvalItems 校验每条金标题字段合法、无重复且 should_refuse 与 gold_chunk_id 一致。
@@ -142,12 +233,25 @@ func equalGoldID(a, b *int64) bool {
 	return (a == nil && b == nil) || (a != nil && b != nil && *a == *b)
 }
 
+func normEvalSet(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return "base52"
+	}
+	return s
+}
+
 func sameEvalQuestion(a, b EvalQuestion) bool {
-	return a.GoldAnswer == b.GoldAnswer && a.ShouldRefuse == b.ShouldRefuse && equalGoldID(a.GoldChunkID, b.GoldChunkID)
+	return a.GoldAnswer == b.GoldAnswer &&
+		a.ShouldRefuse == b.ShouldRefuse &&
+		equalGoldID(a.GoldChunkID, b.GoldChunkID) &&
+		strings.TrimSpace(a.ProjectSlug) == strings.TrimSpace(b.ProjectSlug) &&
+		normEvalSet(a.QuestionSet) == normEvalSet(b.QuestionSet) &&
+		strings.TrimSpace(a.Category) == strings.TrimSpace(b.Category)
 }
 
 // withSeedEvalTx 在数据库命名锁和事务内校验切片并读取既有金标题，供全量 seed 与增量追加共用。
-func (s *Store) withSeedEvalTx(questions []EvalQuestion, fn func(tx *sql.Tx, existing []EvalQuestion) error) error {
+func (s *Store) withSeedEvalTx(questions []EvalQuestion, fn func(tx *sql.Tx, existing []EvalQuestion, v2Schema bool) error) error {
 	ctx := context.Background()
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
@@ -178,15 +282,28 @@ func (s *Store) withSeedEvalTx(questions []EvalQuestion, fn func(tx *sql.Tx, exi
 			return fmt.Errorf("标准切片 %d 不存在或不可读取：%w", *q.GoldChunkID, err)
 		}
 	}
-	rows, err := tx.Query("SELECT id, question, gold_answer, should_refuse, gold_chunk_id FROM eval_questions ORDER BY id FOR UPDATE")
+	v2Schema := true
+	var existing []EvalQuestion
+	rows, err := tx.Query(`SELECT id, question, gold_answer, should_refuse, gold_chunk_id,
+		project_slug, question_set, source_doc_id, category FROM eval_questions ORDER BY id FOR UPDATE`)
+	if err != nil {
+		if IsV1SchemaMissingError(err) {
+			v2Schema = false
+			v1Rows, v1Err := tx.Query("SELECT id, question, gold_answer, should_refuse, gold_chunk_id FROM eval_questions ORDER BY id FOR UPDATE")
+			if v1Err != nil {
+				return v1Err
+			}
+			existing, err = scanEvalQuestionsV1(v1Rows)
+		} else {
+			return err
+		}
+	} else {
+		existing, err = scanEvalQuestionsV2(rows)
+	}
 	if err != nil {
 		return err
 	}
-	existing, err := scanEvalQuestions(rows)
-	if err != nil {
-		return err
-	}
-	if err := fn(tx, existing); err != nil {
+	if err := fn(tx, existing, v2Schema); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -208,7 +325,7 @@ func (s *Store) SeedEvalQuestions(questions []EvalQuestion) error {
 	if err := validateEvalSeed(questions); err != nil {
 		return err
 	}
-	return s.withSeedEvalTx(questions, func(tx *sql.Tx, existing []EvalQuestion) error {
+	return s.withSeedEvalTx(questions, func(tx *sql.Tx, existing []EvalQuestion, v2Schema bool) error {
 		if len(existing) != 0 {
 			if len(existing) != len(questions) {
 				return fmt.Errorf("已有 %d 条金标题，与本批数量不同；未改动金标和历史记录", len(existing))
@@ -226,7 +343,7 @@ func (s *Store) SeedEvalQuestions(questions []EvalQuestion) error {
 			return nil
 		}
 		for _, q := range questions {
-			if _, err := tx.Exec("INSERT INTO eval_questions (question, gold_answer, should_refuse, gold_chunk_id) VALUES (?, ?, ?, ?)", q.Question, q.GoldAnswer, q.ShouldRefuse, q.GoldChunkID); err != nil {
+			if _, err := insertEvalQuestionTx(tx, q, v2Schema); err != nil {
 				return err
 			}
 		}
@@ -234,13 +351,13 @@ func (s *Store) SeedEvalQuestions(questions []EvalQuestion) error {
 	})
 }
 
-// AppendEvalQuestions 增量去重追加金标题（阶段 6 扩充评测集用），完整保留已有题目与历史评测记录。
+// AppendEvalQuestions 增量去重追加金标题（阶段 6 / 阶段 11 / 阶段 12 扩充评测集用），完整保留已有题目与历史评测记录。
 func (s *Store) AppendEvalQuestions(questions []EvalQuestion) (int, error) {
 	if _, err := validateEvalItems(questions); err != nil {
 		return 0, err
 	}
 	inserted := 0
-	err := s.withSeedEvalTx(questions, func(tx *sql.Tx, existing []EvalQuestion) error {
+	err := s.withSeedEvalTx(questions, func(tx *sql.Tx, existing []EvalQuestion, v2Schema bool) error {
 		byQuestion, err := indexExistingQuestions(existing)
 		if err != nil {
 			return err
@@ -252,7 +369,7 @@ func (s *Store) AppendEvalQuestions(questions []EvalQuestion) (int, error) {
 				}
 				continue
 			}
-			if _, err := tx.Exec("INSERT INTO eval_questions (question, gold_answer, should_refuse, gold_chunk_id) VALUES (?, ?, ?, ?)", q.Question, q.GoldAnswer, q.ShouldRefuse, q.GoldChunkID); err != nil {
+			if _, err := insertEvalQuestionTx(tx, q, v2Schema); err != nil {
 				return err
 			}
 			byQuestion[q.Question] = q
@@ -266,6 +383,26 @@ func (s *Store) AppendEvalQuestions(questions []EvalQuestion) (int, error) {
 	return inserted, nil
 }
 
+func insertEvalQuestionTx(tx *sql.Tx, q EvalQuestion, v2Schema bool) (int64, error) {
+	if v2Schema {
+		res, err := tx.Exec(`INSERT INTO eval_questions
+			(question, gold_answer, should_refuse, gold_chunk_id, project_slug, question_set, source_doc_id, category)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			q.Question, q.GoldAnswer, q.ShouldRefuse, q.GoldChunkID,
+			strings.TrimSpace(q.ProjectSlug), normEvalSet(q.QuestionSet), q.SourceDocID, strings.TrimSpace(q.Category))
+		if err != nil {
+			return 0, err
+		}
+		return res.LastInsertId()
+	}
+	res, err := tx.Exec("INSERT INTO eval_questions (question, gold_answer, should_refuse, gold_chunk_id) VALUES (?, ?, ?, ?)",
+		q.Question, q.GoldAnswer, q.ShouldRefuse, q.GoldChunkID)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
 // SaveEvalRuns 完整批次一次提交；任何一题写入失败都不会留下半批记录。
 func (s *Store) SaveEvalRuns(runs []EvalRun) ([]EvalRun, error) {
 	if len(runs) == 0 {
@@ -277,6 +414,11 @@ func (s *Store) SaveEvalRuns(runs []EvalRun) ([]EvalRun, error) {
 	}
 	defer tx.Rollback()
 	out := append([]EvalRun(nil), runs...)
+	batchID := strings.TrimSpace(out[0].BatchID)
+	if batchID == "" {
+		batchID = fmt.Sprintf("b-%d", time.Now().UnixNano())
+	}
+	hasBatchCol := true
 	for i := range out {
 		if out[i].RetrievedChunkIDs == nil {
 			out[i].RetrievedChunkIDs = []int64{}
@@ -288,9 +430,28 @@ func (s *Store) SaveEvalRuns(runs []EvalRun) ([]EvalRun, error) {
 		if err != nil {
 			return nil, err
 		}
-		res, err := tx.Exec(`INSERT INTO eval_runs
-			(question_id, retrieved_chunk_ids, answer, refused, hit, citation_ok, usable)
-			VALUES (?, ?, ?, ?, ?, ?, NULL)`, out[i].QuestionID, string(ids), out[i].Answer, out[i].Refused, out[i].Hit, out[i].CitationOK)
+		var res sql.Result
+		if hasBatchCol {
+			out[i].BatchID = batchID
+			res, err = tx.Exec(`INSERT INTO eval_runs
+				(question_id, retrieved_chunk_ids, answer, refused, hit, citation_ok, usable, batch_id)
+				VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+				out[i].QuestionID, string(ids), out[i].Answer, out[i].Refused, out[i].Hit, out[i].CitationOK, batchID)
+			if err != nil && i == 0 && IsV1SchemaMissingError(err) {
+				hasBatchCol = false
+				out[i].BatchID = ""
+				res, err = tx.Exec(`INSERT INTO eval_runs
+					(question_id, retrieved_chunk_ids, answer, refused, hit, citation_ok, usable)
+					VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+					out[i].QuestionID, string(ids), out[i].Answer, out[i].Refused, out[i].Hit, out[i].CitationOK)
+			}
+		} else {
+			out[i].BatchID = ""
+			res, err = tx.Exec(`INSERT INTO eval_runs
+				(question_id, retrieved_chunk_ids, answer, refused, hit, citation_ok, usable)
+				VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+				out[i].QuestionID, string(ids), out[i].Answer, out[i].Refused, out[i].Hit, out[i].CitationOK)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -348,10 +509,36 @@ type evalRunBatchRow struct {
 }
 
 // EvalUsableSummaryForRun 返回指定 runID 所属批次中已标注的非拒答回答数及其中可用数。
-// 同一批次内的记录按 question_id 严格递增顺序插入；一旦 question_id 回落（<= 上一条）即代表开启了新批次，
-// 从而在不改动锁定表结构（001_init.sql）的前提下严格隔离历次评测的可用率。
+// V2 优先按 batch_id 精确隔离同一批评测（解决 base52 -> holdout 递增 question_id 边界问题）；
+// 对 V1 最小表结构或历史 batch_id 为空的记录，保留按 question_id 回落划批逻辑。
 func (s *Store) EvalUsableSummaryForRun(runID int64) (marked, usable int, err error) {
-	rows, err := s.db.Query("SELECT id, question_id, refused, usable FROM eval_runs ORDER BY id")
+	var batchID string
+	err = s.db.QueryRow("SELECT batch_id FROM eval_runs WHERE id = ?", runID).Scan(&batchID)
+	if err != nil {
+		if IsV1SchemaMissingError(err) {
+			return s.evalUsableSummaryByOrder(runID, false)
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, ErrEvalRunNotFound
+		}
+		return 0, 0, err
+	}
+	if strings.TrimSpace(batchID) != "" {
+		err = s.db.QueryRow(`SELECT
+			COUNT(CASE WHEN refused = 0 AND usable IS NOT NULL THEN 1 END),
+			COUNT(CASE WHEN refused = 0 AND usable = 1 THEN 1 END)
+			FROM eval_runs WHERE batch_id = ?`, batchID).Scan(&marked, &usable)
+		return marked, usable, err
+	}
+	return s.evalUsableSummaryByOrder(runID, true)
+}
+
+func (s *Store) evalUsableSummaryByOrder(runID int64, filterEmptyBatch bool) (marked, usable int, err error) {
+	query := "SELECT id, question_id, refused, usable FROM eval_runs ORDER BY id"
+	if filterEmptyBatch {
+		query = "SELECT id, question_id, refused, usable FROM eval_runs WHERE batch_id = '' ORDER BY id"
+	}
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -411,13 +598,26 @@ func (s *Store) LoadEvalRuns(ids []int64) ([]EvalRun, error) {
 		args = append(args, id)
 		marks = append(marks, "?")
 	}
+	v2Mode := true
 	rows, err := s.db.Query(`SELECT r.id, r.question_id, q.question, q.gold_answer,
-		q.should_refuse, q.gold_chunk_id, r.retrieved_chunk_ids, r.answer, r.refused,
-		r.hit, r.citation_ok, r.usable
+		q.should_refuse, q.gold_chunk_id, q.project_slug, q.question_set, q.category, r.batch_id,
+		r.retrieved_chunk_ids, r.answer, r.refused, r.hit, r.citation_ok, r.usable
 		FROM eval_runs r JOIN eval_questions q ON q.id = r.question_id
 		WHERE r.id IN (`+strings.Join(marks, ",")+`) ORDER BY r.id`, args...)
 	if err != nil {
-		return nil, err
+		if IsV1SchemaMissingError(err) {
+			v2Mode = false
+			rows, err = s.db.Query(`SELECT r.id, r.question_id, q.question, q.gold_answer,
+				q.should_refuse, q.gold_chunk_id, r.retrieved_chunk_ids, r.answer, r.refused,
+				r.hit, r.citation_ok, r.usable
+				FROM eval_runs r JOIN eval_questions q ON q.id = r.question_id
+				WHERE r.id IN (`+strings.Join(marks, ",")+`) ORDER BY r.id`, args...)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	defer rows.Close()
 	out := make([]EvalRun, 0, len(ids))
@@ -427,9 +627,17 @@ func (s *Store) LoadEvalRuns(ids []int64) ([]EvalRun, error) {
 		var hit, citation, usable sql.NullBool
 		var retrieved sql.NullString
 		var answer sql.NullString
-		if err := rows.Scan(&r.ID, &r.QuestionID, &r.Question, &r.GoldAnswer, &r.ShouldRefuse, &gold,
-			&retrieved, &answer, &r.Refused, &hit, &citation, &usable); err != nil {
-			return nil, err
+		var scanErr error
+		if v2Mode {
+			scanErr = rows.Scan(&r.ID, &r.QuestionID, &r.Question, &r.GoldAnswer, &r.ShouldRefuse, &gold,
+				&r.ProjectSlug, &r.QuestionSet, &r.Category, &r.BatchID,
+				&retrieved, &answer, &r.Refused, &hit, &citation, &usable)
+		} else {
+			scanErr = rows.Scan(&r.ID, &r.QuestionID, &r.Question, &r.GoldAnswer, &r.ShouldRefuse, &gold,
+				&retrieved, &answer, &r.Refused, &hit, &citation, &usable)
+		}
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		if gold.Valid {
 			r.GoldChunkID = &gold.Int64
