@@ -52,7 +52,306 @@
     }
 
     .header {
-      margin-bottom: 24px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px 16px;
+    }
+
+    .header-main {
+      min-width: 0;
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .tab-btn {
+      padding: 6px 14px;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.is-active {
+      color: var(--accent);
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06);
+    }
+
+    .gov-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .gov-card {
+      padding: 18px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .gov-card-title {
+      margin: 0 0 12px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .gov-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px 12px;
+    }
+
+    .gov-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .gov-label {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .gov-input,
+    .gov-select {
+      width: 100%;
+      padding: 8px 10px;
+      font-family: inherit;
+      font-size: 13.5px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .gov-input:focus,
+    .gov-select:focus {
+      border-color: var(--accent);
+    }
+
+    .gov-actions {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .gov-checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .btn-primary-sm {
+      padding: 8px 16px;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #ffffff;
+      background: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-primary-sm:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary-sm:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-ghost-sm {
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-ghost-sm:hover:not(:disabled) {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+
+    .btn-danger-sm {
+      padding: 4px 10px;
+      font-family: inherit;
+      font-size: 12.5px;
+      color: var(--error-text);
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-danger-sm:hover:not(:disabled) {
+      background: #fee2e2;
+    }
+
+    .gov-msg {
+      margin-top: 10px;
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .gov-msg.is-ok {
+      color: #166534;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    .gov-msg.is-warn {
+      color: #92400e;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+    }
+
+    .gov-msg.is-err {
+      color: var(--error-text);
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+    }
+
+    .gov-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .doc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .doc-row {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 14px;
+    }
+
+    .doc-row.is-deprecated {
+      background: var(--surface-muted);
+      opacity: 0.88;
+    }
+
+    .doc-main {
+      min-width: 0;
+      flex: 1 1 320px;
+    }
+
+    .doc-title-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .doc-meta-line {
+      margin-top: 4px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+    }
+
+    .doc-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted);
+      color: var(--text-secondary);
+    }
+
+    .doc-badge.is-fmt {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+    }
+
+    .doc-badge.is-deprecated {
+      color: #991b1b;
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .doc-badge.is-active {
+      color: #166534;
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .doc-ops {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .empty-hint {
+      padding: 18px 12px;
+      text-align: center;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      border: 1px dashed var(--border-strong);
+      border-radius: 6px;
     }
 
     .title {
@@ -72,6 +371,208 @@
 
     .ask-section {
       margin-bottom: 24px;
+    }
+
+    .project-bar {
+      margin-bottom: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 8px;
+    }
+
+    .project-bar-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .project-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .project-chip {
+      padding: 4px 11px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1.4;
+      color: var(--text-secondary);
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .project-chip:hover:not(:disabled) {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+
+    .project-chip.is-active {
+      color: #ffffff;
+      background: var(--accent);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .project-chip:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .ambiguity-box {
+      padding: 16px 18px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-left: 4px solid #f59e0b;
+      border-radius: 8px;
+    }
+
+    .ambiguity-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #92400e;
+    }
+
+    .ambiguity-desc {
+      margin: 4px 0 12px;
+      font-size: 13px;
+      color: #78350f;
+    }
+
+    .ambiguity-candidates {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ambiguity-btn {
+      padding: 8px 13px;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: left;
+      color: var(--text);
+      background: #ffffff;
+      border: 1px solid #f59e0b;
+      border-radius: 7px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .ambiguity-btn:hover:not(:disabled) {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    .ambiguity-btn-title {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .ambiguity-btn-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .ambiguity-actions {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .warnings-banner {
+      margin-bottom: 14px;
+      padding: 11px 14px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-left: 4px solid #d97706;
+      border-radius: 6px;
+      color: #92400e;
+    }
+
+    .warnings-title {
+      margin: 0 0 4px;
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+
+    .warnings-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .resolved-badge {
+      padding: 1px 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      border-radius: 999px;
+    }
+
+    .compare-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .compare-card {
+      padding: 16px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .compare-card-head {
+      margin: 0 0 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .source-card.is-deprecated {
+      background: #fafafa;
+      border-left-color: #d97706;
+    }
+
+    .source-meta-badge {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 0 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted);
+      color: var(--text-secondary);
+    }
+
+    .source-meta-badge.is-proj {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+    }
+
+    .source-meta-badge.is-deprecated {
+      color: #991b1b;
+      background: #fef2f2;
+      border-color: #fecaca;
     }
 
     .ask-form {
@@ -508,11 +1009,25 @@
 <body>
   <div class="page">
     <header class="header">
-      <h1 class="title">Go 知识问答 · 可溯源 Demo</h1>
-      <p class="subtitle">基于 Go / Gin 官方文档检索作答，每句结论标注来源编号，无依据时明确拒答。</p>
+      <div class="header-main">
+        <h1 class="title">Go 知识问答 · 可溯源 Demo</h1>
+        <p class="subtitle">基于多项目知识库检索作答，每句结论标注来源编号，无依据时明确拒答。</p>
+      </div>
+      <nav class="tabs" aria-label="功能切换">
+        <button type="button" class="tab-btn is-active" data-tab="ask">智能问答</button>
+        <button type="button" class="tab-btn" data-tab="docs">资料库治理</button>
+      </nav>
     </header>
 
+    <div id="tab-ask">
     <section class="ask-section">
+      <div id="project-bar" class="project-bar" aria-label="项目空间切换">
+        <span class="project-bar-label">项目空间：</span>
+        <div id="project-chips" class="project-chips">
+          <button type="button" class="project-chip is-active" data-project="">自动识别（防跨项目串台）</button>
+        </div>
+      </div>
+
       <form id="ask-form" class="ask-form" novalidate>
         <input
           id="question-input"
@@ -546,13 +1061,37 @@
 
       <div id="error-box" class="status-box error-box" role="alert" hidden></div>
 
+      <section id="ambiguity-box" class="ambiguity-box" hidden>
+        <p class="ambiguity-title">检测到多个并行项目均包含与该问题相关的规范</p>
+        <p class="ambiguity-desc">为防止跨项目规范串台混答，请先点击确认您要查询的具体项目：</p>
+        <div id="ambiguity-candidates" class="ambiguity-candidates"></div>
+        <div class="ambiguity-actions">
+          <button id="compare-btn" type="button" class="btn-ghost-sm">并排对比以上候选项目</button>
+        </div>
+      </section>
+
+      <section id="compare-section" class="compare-section" hidden>
+        <h2 class="section-label">
+          <span>多项目并排对照回答</span>
+          <span class="section-sub">各项目空间独立检索作答，互不串台</span>
+        </h2>
+        <div id="compare-list" class="compare-section"></div>
+      </section>
+
       <section id="refusal-box" class="refusal-box" hidden>
         <p class="refusal-title">文档中没有依据</p>
-        <p class="refusal-desc">当前语料中未检索到足够依据，系统已拒答而不编造结论。</p>
+        <p id="refusal-desc" class="refusal-desc">当前语料中未检索到足够依据，系统已拒答而不编造结论。</p>
       </section>
 
       <section id="answer-card" class="answer-card" hidden>
-        <h2 class="section-label">回答</h2>
+        <div id="warnings-banner" class="warnings-banner" hidden>
+          <p class="warnings-title">废弃文档警示</p>
+          <ul id="warnings-list" class="warnings-list"></ul>
+        </div>
+        <h2 class="section-label">
+          <span>回答</span>
+          <span id="resolved-badge" class="resolved-badge" hidden></span>
+        </h2>
         <div id="answer-body" class="answer-body"></div>
       </section>
 
@@ -564,6 +1103,89 @@
         <div id="sources-list" class="sources-list"></div>
       </section>
     </main>
+    </div>
+
+    <section id="tab-docs" class="gov-stack" hidden>
+      <div class="gov-card">
+        <h2 class="gov-card-title">新建项目空间</h2>
+        <form id="project-form" novalidate>
+          <div class="gov-grid">
+            <label class="gov-field">
+              <span class="gov-label">项目标识（slug，仅小写字母/数字/连字符）</span>
+              <input id="proj-slug" class="gov-input" type="text" placeholder="例如：events" required />
+            </label>
+            <label class="gov-field">
+              <span class="gov-label">项目名称</span>
+              <input id="proj-name" class="gov-input" type="text" placeholder="例如：活动运营项目" required />
+            </label>
+            <label class="gov-field">
+              <span class="gov-label">说明（可选）</span>
+              <input id="proj-desc" class="gov-input" type="text" placeholder="例如：活动排期与规则" />
+            </label>
+          </div>
+          <div class="gov-actions">
+            <span class="section-sub">已有项目将在下方上传与过滤列表中实时可选</span>
+            <button id="proj-submit" class="btn-primary-sm" type="submit">创建项目</button>
+          </div>
+          <div id="proj-msg" class="gov-msg" hidden></div>
+        </form>
+      </div>
+
+      <div class="gov-card">
+        <h2 class="gov-card-title">多格式文档热入库</h2>
+        <form id="upload-form" novalidate>
+          <div class="gov-grid">
+            <label class="gov-field">
+              <span class="gov-label">选择文件（.md / .txt / .docx / .xlsx / .pdf）</span>
+              <input id="upload-file" class="gov-input" type="file" accept=".md,.markdown,.txt,.docx,.xlsx,.pdf,.png,.jpg,.jpeg,.webp" required />
+            </label>
+            <label class="gov-field">
+              <span class="gov-label">所属项目</span>
+              <select id="upload-project" class="gov-select"></select>
+            </label>
+            <label class="gov-field">
+              <span class="gov-label">文档层级</span>
+              <select id="upload-level" class="gov-select">
+                <option value="spec">spec（正式规范）</option>
+                <option value="rfc">rfc（方案评审）</option>
+                <option value="note">note（会议纪要）</option>
+              </select>
+            </label>
+            <label class="gov-field">
+              <span class="gov-label">负责人（可选）</span>
+              <input id="upload-owner" class="gov-input" type="text" placeholder="例如：张三" />
+            </label>
+          </div>
+          <div class="gov-actions">
+            <label class="gov-checkbox">
+              <input id="upload-overwrite" type="checkbox" />
+              <span>同名文档内容未变也强制覆盖重切</span>
+            </label>
+            <button id="upload-submit" class="btn-primary-sm" type="submit">上传并切片入库</button>
+          </div>
+          <div id="upload-msg" class="gov-msg" hidden></div>
+        </form>
+      </div>
+
+      <div class="gov-card">
+        <div class="gov-card-title">
+          <span>资料库文档列表</span>
+          <div class="gov-filters">
+            <select id="filter-project" class="gov-select" aria-label="按项目过滤" style="width:auto">
+              <option value="">全部项目</option>
+            </select>
+            <select id="filter-status" class="gov-select" aria-label="按状态过滤" style="width:auto">
+              <option value="">全部状态</option>
+              <option value="active">仅生效（active）</option>
+              <option value="deprecated">仅废弃（deprecated）</option>
+            </select>
+            <button id="docs-refresh" type="button" class="btn-ghost-sm">刷新</button>
+          </div>
+        </div>
+        <div id="docs-msg" class="gov-msg" hidden></div>
+        <div id="docs-list" class="doc-list"></div>
+      </div>
+    </section>
 
     <!-- 角落信息：语料段数实时请求 /api/chunks；最近评测 4 指标按阶段 6 迭代 4 实测值手动填写（更新于 2026-11-17） -->
     <footer class="meta-corner">
@@ -585,10 +1207,20 @@
       var askBtn = document.getElementById('ask-btn');
       var btnLabel = askBtn.querySelector('.btn-label');
       var validationHint = document.getElementById('validation-hint');
+      var projectChipsEl = document.getElementById('project-chips');
       var loadingBox = document.getElementById('loading-box');
       var errorBox = document.getElementById('error-box');
+      var ambiguityBox = document.getElementById('ambiguity-box');
+      var ambiguityCandidatesEl = document.getElementById('ambiguity-candidates');
+      var compareBtn = document.getElementById('compare-btn');
+      var compareSection = document.getElementById('compare-section');
+      var compareListEl = document.getElementById('compare-list');
       var refusalBox = document.getElementById('refusal-box');
+      var refusalDesc = document.getElementById('refusal-desc');
       var answerCard = document.getElementById('answer-card');
+      var warningsBanner = document.getElementById('warnings-banner');
+      var warningsList = document.getElementById('warnings-list');
+      var resolvedBadge = document.getElementById('resolved-badge');
       var answerBody = document.getElementById('answer-body');
       var sourcesSection = document.getElementById('sources-section');
       var sourcesTitle = document.getElementById('sources-title');
@@ -597,10 +1229,55 @@
       var exampleChips = document.querySelectorAll('.example-chip');
 
       var isLoading = false;
+      var selectedProjectSlug = '';
+      var cachedProjects = [];
+      var DEFAULT_REFUSAL_DESC = '当前语料中未检索到足够依据，系统已拒答而不编造结论。';
 
-      // 加载当前语料总段数
+      function formatDocLevelLabel(level) {
+        var l = String(level || '').toLowerCase();
+        if (l === 'spec') return '规范';
+        if (l === 'rfc') return 'RFC';
+        if (l === 'note') return '纪要';
+        return level || '';
+      }
+
+      function renderProjectBar(list) {
+        projectChipsEl.textContent = '';
+
+        function makeChip(slug, label) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'project-chip' + (selectedProjectSlug === slug ? ' is-active' : '');
+          btn.setAttribute('data-project', slug);
+          btn.disabled = isLoading;
+          btn.textContent = label;
+          btn.addEventListener('click', function () {
+            if (isLoading) return;
+            selectedProjectSlug = slug;
+            renderProjectBar(cachedProjects);
+            loadChunkCount();
+          });
+          return btn;
+        }
+
+        projectChipsEl.appendChild(makeChip('', '自动识别（防跨项目串台）'));
+        for (var i = 0; i < list.length; i++) {
+          var p = list[i];
+          var label = p.name + ' (' + p.slug + ')';
+          if (typeof p.chunk_count === 'number') {
+            label += ' · ' + p.chunk_count + '段';
+          }
+          projectChipsEl.appendChild(makeChip(p.slug, label));
+        }
+      }
+
+      // 加载当前语料段数（按已选项目或全库）
       function loadChunkCount() {
-        fetch('/api/chunks', { method: 'GET' })
+        var url = '/api/chunks';
+        if (selectedProjectSlug) {
+          url += '?project_slug=' + encodeURIComponent(selectedProjectSlug);
+        }
+        fetch(url, { method: 'GET' })
           .then(function (resp) {
             if (!resp.ok) {
               throw new Error('HTTP ' + resp.status);
@@ -609,7 +1286,11 @@
           })
           .then(function (data) {
             if (data && typeof data.total === 'number') {
-              chunkStatus.textContent = '当前语料 ' + data.total + ' 段';
+              if (selectedProjectSlug) {
+                chunkStatus.textContent = '项目 ' + selectedProjectSlug + ' 自有语料 ' + data.total + ' 段（检索含 shared）';
+              } else {
+                chunkStatus.textContent = '当前语料 ' + data.total + ' 段';
+              }
             } else {
               chunkStatus.textContent = '当前语料段数未知';
             }
@@ -629,14 +1310,27 @@
         for (var i = 0; i < exampleChips.length; i++) {
           exampleChips[i].disabled = loading;
         }
+        var pChips = projectChipsEl.querySelectorAll('.project-chip');
+        for (var j = 0; j < pChips.length; j++) {
+          pChips[j].disabled = loading;
+        }
         loadingBox.hidden = !loading;
       }
 
       function clearResults() {
         errorBox.hidden = true;
         errorBox.textContent = '';
+        ambiguityBox.hidden = true;
+        ambiguityCandidatesEl.textContent = '';
+        compareSection.hidden = true;
+        compareListEl.textContent = '';
         refusalBox.hidden = true;
+        refusalDesc.textContent = DEFAULT_REFUSAL_DESC;
         answerCard.hidden = true;
+        warningsBanner.hidden = true;
+        warningsList.textContent = '';
+        resolvedBadge.hidden = true;
+        resolvedBadge.textContent = '';
         answerBody.textContent = '';
         sourcesSection.hidden = true;
         sourcesList.textContent = '';
@@ -696,8 +1390,8 @@
       }
 
       // 安全渲染答案正文（先剥离围栏代码块，避免代码下标被误判为引用编号）
-      function renderAnswerBody(answerText, validCitationSet) {
-        answerBody.textContent = '';
+      function renderAnswerBodyInto(containerEl, answerText, validCitationSet) {
+        containerEl.textContent = '';
         var normalized = String(answerText || '').replace(/\r\n/g, '\n');
         var fencedRe = /```[^\n]*\n?([\s\S]*?)```/g;
         var lastIndex = 0;
@@ -718,7 +1412,7 @@
               }
               appendInlineTokens(p, lines[j], validCitationSet);
             }
-            answerBody.appendChild(p);
+            containerEl.appendChild(p);
           }
         }
 
@@ -731,7 +1425,7 @@
           var code = document.createElement('code');
           code.textContent = match[1].replace(/\n$/, '');
           pre.appendChild(code);
-          answerBody.appendChild(pre);
+          containerEl.appendChild(pre);
           lastIndex = fencedRe.lastIndex;
         }
         if (lastIndex < normalized.length) {
@@ -753,6 +1447,20 @@
         return cited;
       }
 
+      function renderWarningsInto(bannerEl, listEl, warnings) {
+        listEl.textContent = '';
+        if (!Array.isArray(warnings) || warnings.length === 0) {
+          bannerEl.hidden = true;
+          return;
+        }
+        for (var i = 0; i < warnings.length; i++) {
+          var li = document.createElement('li');
+          li.textContent = warnings[i].message || '引用来源包含已废弃文档，请确认最新替代版本。';
+          listEl.appendChild(li);
+        }
+        bannerEl.hidden = false;
+      }
+
       function renderSources(citations, citedInAnswer) {
         sourcesList.textContent = '';
         if (!Array.isArray(citations) || citations.length === 0) {
@@ -764,8 +1472,9 @@
 
         for (var i = 0; i < citations.length; i++) {
           var item = citations[i];
+          var isDeprecated = item.doc_status === 'deprecated';
           var card = document.createElement('article');
-          card.className = 'source-card';
+          card.className = 'source-card' + (isDeprecated ? ' is-deprecated' : '');
           card.id = 'source-card-' + item.n;
           card.setAttribute('data-cite-n', String(item.n));
 
@@ -781,6 +1490,27 @@
           heading.className = 'source-heading';
           heading.textContent = item.heading || '未命名段落';
           head.appendChild(heading);
+
+          if (item.project_name || item.project_slug) {
+            var projBadge = document.createElement('span');
+            projBadge.className = 'source-meta-badge is-proj';
+            projBadge.textContent = item.project_name || item.project_slug;
+            head.appendChild(projBadge);
+          }
+
+          if (item.doc_level) {
+            var lvlBadge = document.createElement('span');
+            lvlBadge.className = 'source-meta-badge';
+            lvlBadge.textContent = formatDocLevelLabel(item.doc_level);
+            head.appendChild(lvlBadge);
+          }
+
+          if (isDeprecated) {
+            var depBadge = document.createElement('span');
+            depBadge.className = 'source-meta-badge is-deprecated';
+            depBadge.textContent = '已废弃';
+            head.appendChild(depBadge);
+          }
 
           if (citedInAnswer.has(Number(item.n))) {
             var citedTag = document.createElement('span');
@@ -827,6 +1557,88 @@
         sourcesSection.hidden = false;
       }
 
+      function renderAmbiguity(amb, citations) {
+        ambiguityCandidatesEl.textContent = '';
+        var candidates = (amb && Array.isArray(amb.candidates)) ? amb.candidates : [];
+        for (var i = 0; i < candidates.length; i++) {
+          (function (cand) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ambiguity-btn';
+
+            var title = document.createElement('span');
+            title.className = 'ambiguity-btn-title';
+            title.textContent = (cand.project_name || cand.project_slug) + ' (' + cand.project_slug + ')';
+            btn.appendChild(title);
+
+            var meta = document.createElement('span');
+            meta.className = 'ambiguity-btn-meta';
+            var scoreText = typeof cand.top_score === 'number' ? cand.top_score.toFixed(2) : '';
+            meta.textContent = '最高分 ' + scoreText + (cand.top_heading ? (' · ' + cand.top_heading) : '');
+            btn.appendChild(meta);
+
+            btn.addEventListener('click', function () {
+              if (isLoading) return;
+              selectedProjectSlug = cand.project_slug;
+              renderProjectBar(cachedProjects);
+              loadChunkCount();
+              submitQuestion(false);
+            });
+            ambiguityCandidatesEl.appendChild(btn);
+          })(candidates[i]);
+        }
+        ambiguityBox.hidden = false;
+        if (Array.isArray(citations) && citations.length > 0) {
+          renderSources(citations, new Set());
+        }
+      }
+
+      function renderComparisons(comparisons) {
+        compareListEl.textContent = '';
+        for (var i = 0; i < comparisons.length; i++) {
+          var item = comparisons[i];
+          var card = document.createElement('article');
+          card.className = 'compare-card';
+
+          var head = document.createElement('div');
+          head.className = 'compare-card-head';
+          var title = document.createElement('span');
+          title.textContent = (item.project_name || item.project_slug) + ' (' + item.project_slug + ')';
+          head.appendChild(title);
+          var badge = document.createElement('span');
+          badge.className = 'resolved-badge';
+          badge.textContent = item.refused ? '无依据拒答' : '独立作答';
+          head.appendChild(badge);
+          card.appendChild(head);
+
+          if (Array.isArray(item.warnings) && item.warnings.length > 0) {
+            var wb = document.createElement('div');
+            wb.className = 'warnings-banner';
+            var wt = document.createElement('p');
+            wt.className = 'warnings-title';
+            wt.textContent = '废弃文档警示';
+            wb.appendChild(wt);
+            var wl = document.createElement('ul');
+            wl.className = 'warnings-list';
+            renderWarningsInto(wb, wl, item.warnings);
+            wb.appendChild(wl);
+            card.appendChild(wb);
+          }
+
+          var body = document.createElement('div');
+          body.className = 'answer-body';
+          var cits = Array.isArray(item.citations) ? item.citations : [];
+          var validSet = new Set();
+          for (var j = 0; j < cits.length; j++) {
+            validSet.add(Number(cits[j].n));
+          }
+          renderAnswerBodyInto(body, item.answer, validSet);
+          card.appendChild(body);
+          compareListEl.appendChild(card);
+        }
+        compareSection.hidden = false;
+      }
+
       // 高亮对应来源卡片并平滑滚动定位
       function highlightAndScrollToSource(n) {
         var targetCard = document.getElementById('source-card-' + n);
@@ -860,7 +1672,12 @@
         }
       });
 
-      function submitQuestion() {
+      compareBtn.addEventListener('click', function () {
+        if (isLoading) return;
+        submitQuestion(true);
+      });
+
+      function submitQuestion(compareMode) {
         if (isLoading) {
           return;
         }
@@ -876,10 +1693,16 @@
         clearResults();
         setLoading(true);
 
+        var reqBody = {
+          question: question,
+          project_slug: compareMode ? 'auto' : selectedProjectSlug,
+          compare: Boolean(compareMode)
+        };
+
         fetch('/api/ask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: question })
+          body: JSON.stringify(reqBody)
         })
           .then(function (resp) {
             return resp.text().then(function (rawText) {
@@ -902,10 +1725,26 @@
           .then(function (data) {
             setLoading(false);
             var citations = Array.isArray(data.citations) ? data.citations : [];
+
+            if (Array.isArray(data.comparisons) && data.comparisons.length > 0) {
+              renderComparisons(data.comparisons);
+              return;
+            }
+
+            if (data.ambiguity && data.ambiguity.detected) {
+              renderAmbiguity(data.ambiguity, citations);
+              return;
+            }
+
             var isRefused = Boolean(data.refused) || (data.answer.trim() === REFUSE_TEXT && citations.length === 0);
 
             if (isRefused) {
               clearResults();
+              if (data.answer && data.answer.indexOf('暂无资料') >= 0) {
+                refusalDesc.textContent = '当前指定项目及公共规范库尚无已入库资料，请先上传文档或切换其他项目。';
+              } else {
+                refusalDesc.textContent = DEFAULT_REFUSAL_DESC;
+              }
               refusalBox.hidden = false;
               return;
             }
@@ -916,7 +1755,15 @@
             }
             var citedInAnswer = extractCitedNumbers(data.answer);
 
-            renderAnswerBody(data.answer, validCitationSet);
+            renderWarningsInto(warningsBanner, warningsList, data.warnings);
+            if (data.project_resolved) {
+              resolvedBadge.textContent = '项目域：' + data.project_resolved + (data.project_resolved !== 'shared' ? ' + shared' : '');
+              resolvedBadge.hidden = false;
+            } else {
+              resolvedBadge.hidden = true;
+            }
+
+            renderAnswerBodyInto(answerBody, data.answer, validCitationSet);
             answerCard.hidden = false;
             renderSources(citations, citedInAnswer);
           })
@@ -929,7 +1776,7 @@
 
       form.addEventListener('submit', function (e) {
         e.preventDefault();
-        submitQuestion();
+        submitQuestion(false);
       });
 
       questionInput.addEventListener('input', function () {
@@ -944,11 +1791,404 @@
             return;
           }
           questionInput.value = this.getAttribute('data-q') || '';
-          submitQuestion();
+          submitQuestion(false);
         });
       }
 
       loadChunkCount();
+
+      // ---- 阶段 9：页签切换与资料库治理 ----
+      var tabButtons = document.querySelectorAll('.tab-btn');
+      var tabAskEl = document.getElementById('tab-ask');
+      var tabDocsEl = document.getElementById('tab-docs');
+
+      var projectForm = document.getElementById('project-form');
+      var projSlugInput = document.getElementById('proj-slug');
+      var projNameInput = document.getElementById('proj-name');
+      var projDescInput = document.getElementById('proj-desc');
+      var projSubmitBtn = document.getElementById('proj-submit');
+      var projMsg = document.getElementById('proj-msg');
+
+      var uploadForm = document.getElementById('upload-form');
+      var uploadFileInput = document.getElementById('upload-file');
+      var uploadProjectSelect = document.getElementById('upload-project');
+      var uploadLevelSelect = document.getElementById('upload-level');
+      var uploadOwnerInput = document.getElementById('upload-owner');
+      var uploadOverwriteInput = document.getElementById('upload-overwrite');
+      var uploadSubmitBtn = document.getElementById('upload-submit');
+      var uploadMsg = document.getElementById('upload-msg');
+
+      var filterProjectSelect = document.getElementById('filter-project');
+      var filterStatusSelect = document.getElementById('filter-status');
+      var docsRefreshBtn = document.getElementById('docs-refresh');
+      var docsMsg = document.getElementById('docs-msg');
+      var docsList = document.getElementById('docs-list');
+
+      function showGovMsg(el, kind, text) {
+        el.className = 'gov-msg ' + kind;
+        el.textContent = text;
+        el.hidden = false;
+      }
+
+      function formatSourceIcon(sourceType) {
+        var s = String(sourceType || 'md').toUpperCase();
+        var map = { MD: 'MD', TXT: 'TXT', DOCX: 'WORD', XLSX: 'EXCEL', PDF: 'PDF', IMG: 'IMG' };
+        return '[' + (map[s] || s) + ']';
+      }
+
+      function switchTab(name) {
+        var isDocs = name === 'docs';
+        tabAskEl.hidden = isDocs;
+        tabDocsEl.hidden = !isDocs;
+        for (var i = 0; i < tabButtons.length; i++) {
+          var active = tabButtons[i].getAttribute('data-tab') === name;
+          tabButtons[i].classList.toggle('is-active', active);
+        }
+        if (isDocs) {
+          loadProjects().then(loadDocuments);
+        } else {
+          loadProjects();
+          loadChunkCount();
+        }
+      }
+
+      for (var t = 0; t < tabButtons.length; t++) {
+        tabButtons[t].addEventListener('click', function () {
+          switchTab(this.getAttribute('data-tab'));
+        });
+      }
+
+      function readJSONResponse(resp) {
+        return resp.text().then(function (raw) {
+          var payload = null;
+          try {
+            payload = raw ? JSON.parse(raw) : null;
+          } catch (_) {
+            payload = null;
+          }
+          if (!resp.ok) {
+            var errMsg = (payload && payload.error) ? payload.error : ('HTTP ' + resp.status);
+            throw new Error(errMsg);
+          }
+          return payload;
+        });
+      }
+
+      function loadProjects() {
+        return fetch('/api/projects', { method: 'GET' })
+          .then(readJSONResponse)
+          .then(function (data) {
+            var list = (data && Array.isArray(data.projects)) ? data.projects : [];
+            cachedProjects = list;
+            renderProjectBar(list);
+
+            var prevUpload = uploadProjectSelect.value || 'go-gin';
+            var prevFilter = filterProjectSelect.value || '';
+
+            uploadProjectSelect.textContent = '';
+            filterProjectSelect.textContent = '';
+
+            var allOpt = document.createElement('option');
+            allOpt.value = '';
+            allOpt.textContent = '全部项目';
+            filterProjectSelect.appendChild(allOpt);
+
+            for (var i = 0; i < list.length; i++) {
+              var p = list[i];
+              var uo = document.createElement('option');
+              uo.value = p.slug;
+              uo.textContent = p.name + ' (' + p.slug + ')';
+              uploadProjectSelect.appendChild(uo);
+
+              var fo = document.createElement('option');
+              fo.value = p.slug;
+              fo.textContent = p.name + ' (' + p.doc_count + '篇/' + p.chunk_count + '段)';
+              filterProjectSelect.appendChild(fo);
+            }
+
+            uploadProjectSelect.value = prevUpload;
+            if (!uploadProjectSelect.value && list.length > 0) {
+              uploadProjectSelect.value = list[0].slug;
+            }
+            filterProjectSelect.value = prevFilter;
+          })
+          .catch(function (err) {
+            showGovMsg(docsMsg, 'is-err', '加载项目列表失败：' + err.message);
+          });
+      }
+
+      loadProjects();
+
+      function loadDocuments() {
+        var qs = [];
+        if (filterProjectSelect.value) {
+          qs.push('project_slug=' + encodeURIComponent(filterProjectSelect.value));
+        }
+        if (filterStatusSelect.value) {
+          qs.push('status=' + encodeURIComponent(filterStatusSelect.value));
+        }
+        var url = '/api/documents' + (qs.length ? ('?' + qs.join('&')) : '');
+        return fetch(url, { method: 'GET' })
+          .then(readJSONResponse)
+          .then(function (data) {
+            var docs = (data && Array.isArray(data.documents)) ? data.documents : [];
+            renderDocuments(docs);
+          })
+          .catch(function (err) {
+            showGovMsg(docsMsg, 'is-err', '加载文档列表失败：' + err.message);
+          });
+      }
+
+      function renderDocuments(docs) {
+        docsList.textContent = '';
+        if (!docs.length) {
+          var empty = document.createElement('div');
+          empty.className = 'empty-hint';
+          empty.textContent = '当前筛选条件下暂无文档，可在上方上传新文档。';
+          docsList.appendChild(empty);
+          return;
+        }
+
+        for (var i = 0; i < docs.length; i++) {
+          (function (doc) {
+            var row = document.createElement('div');
+            row.className = 'doc-row' + (doc.status === 'deprecated' ? ' is-deprecated' : '');
+
+            var main = document.createElement('div');
+            main.className = 'doc-main';
+
+            var titleLine = document.createElement('div');
+            titleLine.className = 'doc-title-line';
+
+            var fmtBadge = document.createElement('span');
+            fmtBadge.className = 'doc-badge is-fmt';
+            fmtBadge.textContent = formatSourceIcon(doc.source_type);
+            titleLine.appendChild(fmtBadge);
+
+            var titleSpan = document.createElement('span');
+            titleSpan.textContent = doc.title || doc.filename;
+            titleLine.appendChild(titleSpan);
+
+            var statusBadge = document.createElement('span');
+            statusBadge.className = 'doc-badge ' + (doc.status === 'deprecated' ? 'is-deprecated' : 'is-active');
+            statusBadge.textContent = doc.status === 'deprecated' ? '已废弃 deprecated' : '生效中 active';
+            titleLine.appendChild(statusBadge);
+
+            var levelBadge = document.createElement('span');
+            levelBadge.className = 'doc-badge';
+            levelBadge.textContent = doc.doc_level || 'spec';
+            titleLine.appendChild(levelBadge);
+
+            main.appendChild(titleLine);
+
+            var metaLine = document.createElement('div');
+            metaLine.className = 'doc-meta-line';
+            var metaParts = [
+              '项目：' + (doc.project_name || doc.project_slug),
+              '文件：' + doc.filename,
+              '切片：' + doc.chunk_count + ' 段',
+              '负责人：' + (doc.owner || '未填')
+            ];
+            if (doc.replaced_by_doc_id) {
+              metaParts.push('替代文档ID：#' + doc.replaced_by_doc_id);
+            }
+            if (doc.updated_at) {
+              metaParts.push('更新：' + String(doc.updated_at).slice(0, 19).replace('T', ' '));
+            }
+            for (var m = 0; m < metaParts.length; m++) {
+              var ms = document.createElement('span');
+              ms.textContent = metaParts[m];
+              metaLine.appendChild(ms);
+            }
+            main.appendChild(metaLine);
+            row.appendChild(main);
+
+            var ops = document.createElement('div');
+            ops.className = 'doc-ops';
+
+            if (doc.status === 'deprecated') {
+              var repSelect = document.createElement('select');
+              repSelect.className = 'gov-select';
+              repSelect.style.width = 'auto';
+              repSelect.setAttribute('aria-label', '指定替代文档');
+              var noneOpt = document.createElement('option');
+              noneOpt.value = '';
+              noneOpt.textContent = '替代文档：未指定';
+              repSelect.appendChild(noneOpt);
+              for (var k = 0; k < docs.length; k++) {
+                var candDoc = docs[k];
+                if (candDoc.id === doc.id || candDoc.status === 'deprecated') {
+                  continue;
+                }
+                var opt = document.createElement('option');
+                opt.value = String(candDoc.id);
+                opt.textContent = '替换为：' + (candDoc.title || candDoc.filename) + ' (#' + candDoc.id + ')';
+                repSelect.appendChild(opt);
+              }
+              repSelect.value = doc.replaced_by_doc_id ? String(doc.replaced_by_doc_id) : '';
+              repSelect.addEventListener('change', function () {
+                var val = repSelect.value ? Number(repSelect.value) : null;
+                repSelect.disabled = true;
+                fetch('/api/documents/' + doc.id, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ replaced_by_doc_id: val })
+                })
+                  .then(readJSONResponse)
+                  .then(function () {
+                    showGovMsg(docsMsg, 'is-ok', '文档 #' + doc.id + ' 替代文档已更新');
+                    loadDocuments();
+                  })
+                  .catch(function (err) {
+                    repSelect.disabled = false;
+                    showGovMsg(docsMsg, 'is-err', '更新替代文档失败：' + err.message);
+                  });
+              });
+              ops.appendChild(repSelect);
+            }
+
+            var nextStatus = doc.status === 'deprecated' ? 'active' : 'deprecated';
+            var toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'btn-ghost-sm';
+            toggleBtn.textContent = doc.status === 'deprecated' ? '恢复生效' : '设为废弃';
+            toggleBtn.addEventListener('click', function () {
+              toggleBtn.disabled = true;
+              fetch('/api/documents/' + doc.id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: nextStatus })
+              })
+                .then(readJSONResponse)
+                .then(function () {
+                  showGovMsg(docsMsg, 'is-ok', '文档 #' + doc.id + ' 状态已更新为 ' + nextStatus);
+                  loadDocuments();
+                })
+                .catch(function (err) {
+                  toggleBtn.disabled = false;
+                  showGovMsg(docsMsg, 'is-err', '更新状态失败：' + err.message);
+                });
+            });
+            ops.appendChild(toggleBtn);
+
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn-danger-sm';
+            delBtn.textContent = '删除';
+            delBtn.addEventListener('click', function () {
+              if (!window.confirm('确认删除文档《' + (doc.title || doc.filename) + '》及其 ' + doc.chunk_count + ' 条切片？')) {
+                return;
+              }
+              delBtn.disabled = true;
+              fetch('/api/documents/' + doc.id, { method: 'DELETE' })
+                .then(readJSONResponse)
+                .then(function (res) {
+                  var msg = '已删除文档 #' + doc.id + '（清理切片 ' + res.chunks_deleted + ' 段）。';
+                  var kind = 'is-ok';
+                  if (Array.isArray(res.warnings) && res.warnings.length > 0) {
+                    msg += ' ' + res.warnings.join('；');
+                    kind = 'is-warn';
+                  }
+                  showGovMsg(docsMsg, kind, msg);
+                  loadChunkCount();
+                  loadProjects().then(loadDocuments);
+                })
+                .catch(function (err) {
+                  delBtn.disabled = false;
+                  showGovMsg(docsMsg, 'is-err', '删除失败：' + err.message);
+                });
+            });
+            ops.appendChild(delBtn);
+
+            row.appendChild(ops);
+            docsList.appendChild(row);
+          })(docs[i]);
+        }
+      }
+
+      projectForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        projMsg.hidden = true;
+        var slug = projSlugInput.value.trim();
+        var name = projNameInput.value.trim();
+        var desc = projDescInput.value.trim();
+        if (!slug || !name) {
+          showGovMsg(projMsg, 'is-err', '请填写项目标识（slug）与项目名称。');
+          return;
+        }
+        projSubmitBtn.disabled = true;
+        fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: slug, name: name, description: desc })
+        })
+          .then(readJSONResponse)
+          .then(function (created) {
+            projSubmitBtn.disabled = false;
+            projForm.reset();
+            showGovMsg(projMsg, 'is-ok', '项目空间创建成功：' + created.name + ' (' + created.slug + ')');
+            loadProjects().then(function () {
+              uploadProjectSelect.value = created.slug;
+            });
+          })
+          .catch(function (err) {
+            projSubmitBtn.disabled = false;
+            showGovMsg(projMsg, 'is-err', '创建项目失败：' + err.message);
+          });
+      });
+
+      uploadForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        uploadMsg.hidden = true;
+        var file = uploadFileInput.files && uploadFileInput.files[0];
+        if (!file) {
+          showGovMsg(uploadMsg, 'is-err', '请先选择要上传的文档文件。');
+          return;
+        }
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('project_slug', uploadProjectSelect.value || 'go-gin');
+        fd.append('doc_level', uploadLevelSelect.value || 'spec');
+        fd.append('owner', uploadOwnerInput.value.trim());
+        if (uploadOverwriteInput.checked) {
+          fd.append('overwrite', 'true');
+        }
+
+        uploadSubmitBtn.disabled = true;
+        uploadSubmitBtn.textContent = '解析切片中...';
+        fetch('/api/documents/upload', {
+          method: 'POST',
+          body: fd
+        })
+          .then(readJSONResponse)
+          .then(function (res) {
+            uploadSubmitBtn.disabled = false;
+            uploadSubmitBtn.textContent = '上传并切片入库';
+            if (res.skipped) {
+              showGovMsg(uploadMsg, 'is-warn', (res.message || '文档内容未变更，已跳过重复导入') + '（document_id=' + res.document_id + '，共 ' + res.chunk_count + ' 段）。');
+            } else {
+              var msg = (res.message || '入库成功') + '：' + res.filename + ' → 项目 ' + res.project_slug + '，共 ' + res.chunk_count + ' 段。';
+              if (Array.isArray(res.warnings) && res.warnings.length > 0) {
+                msg += ' ' + res.warnings.join('；');
+              }
+              showGovMsg(uploadMsg, 'is-ok', msg);
+            }
+            uploadFileInput.value = '';
+            loadChunkCount();
+            loadProjects().then(loadDocuments);
+          })
+          .catch(function (err) {
+            uploadSubmitBtn.disabled = false;
+            uploadSubmitBtn.textContent = '上传并切片入库';
+            showGovMsg(uploadMsg, 'is-err', '上传入库失败：' + err.message);
+          });
+      });
+
+      filterProjectSelect.addEventListener('change', loadDocuments);
+      filterStatusSelect.addEventListener('change', loadDocuments);
+      docsRefreshBtn.addEventListener('click', function () {
+        loadProjects().then(loadDocuments);
+      });
     })();
   </script>
 </body>

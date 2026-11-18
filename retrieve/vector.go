@@ -36,9 +36,11 @@ func cosine(a, b []float64) float64 {
 func TopK(questionVec []float64, chunks []store.Chunk, k int) []ScoredChunk {
 	scored := make([]ScoredChunk, 0, len(chunks))
 	for _, c := range chunks {
-		var vec []float64
-		if err := json.Unmarshal([]byte(c.Embedding), &vec); err != nil {
-			continue // 向量解析失败的切片跳过
+		vec := c.Vec
+		if len(vec) == 0 {
+			if err := json.Unmarshal([]byte(c.Embedding), &vec); err != nil {
+				continue // 向量解析失败的切片跳过
+			}
 		}
 		scored = append(scored, ScoredChunk{Chunk: c, Score: cosine(questionVec, vec)})
 	}

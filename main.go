@@ -25,10 +25,15 @@ func main() {
 	}
 	defer st.Close()
 
+	var vlm ingest.VLMTranscriber
+	if cfg.VLM.Model != "" {
+		vlm = ingest.NewVLMClient(cfg.VLM.BaseURL, cfg.VLM.APIKey, cfg.VLM.Model)
+	}
 	h := &api.Handler{
-		Store:    st,
-		Embedder: ingest.NewEmbedder(cfg.Embed.BaseURL, cfg.Embed.APIKey, cfg.Embed.Model),
-		Chat:     generate.NewChatClient(cfg.Chat.BaseURL, cfg.Chat.APIKey, cfg.Chat.Model),
+		Store:     st,
+		Embedder:  ingest.NewEmbedder(cfg.Embed.BaseURL, cfg.Embed.APIKey, cfg.Embed.Model),
+		Chat:      generate.NewChatClient(cfg.Chat.BaseURL, cfg.Chat.APIKey, cfg.Chat.Model),
+		Converter: ingest.NewConverter(ingest.ConvertOptions{Engine: cfg.ConvertEngine, VLM: vlm}),
 	}
 
 	r := api.NewRouter(h)

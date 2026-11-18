@@ -4,6 +4,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -19,12 +20,13 @@ import (
 // 初始 0.35，属可调常量：调高更保守（更容易拒答），调低更激进。
 const refuseThreshold = 0.35
 
-// Handler 聚合问答链路所需依赖。
+// Handler 聚合问答链路与资料库治理所需依赖。
 type Handler struct {
-	Store    *store.Store
-	Embedder *ingest.Embedder
-	Chat     *generate.ChatClient
-	evalMu   sync.Mutex // 同一时刻只允许一批评测，冲突请求返回 409
+	Store     *store.Store
+	Embedder  *ingest.Embedder
+	Chat      *generate.ChatClient
+	Converter ingest.Converter // 可选：nil 时按环境变量初始化默认转换器
+	evalMu    sync.Mutex       // 同一时刻只允许一批评测，冲突请求返回 409
 }
 
 // NewRouter 装配路由。
@@ -34,6 +36,12 @@ func NewRouter(h *Handler) *gin.Engine {
 	r.HEAD("/", h.Index)
 	r.POST("/api/ask", h.Ask)
 	r.GET("/api/chunks", h.Chunks)
+	r.GET("/api/projects", h.ListProjects)
+	r.POST("/api/projects", h.CreateProject)
+	r.GET("/api/documents", h.ListDocuments)
+	r.POST("/api/documents/upload", h.UploadDocument)
+	r.PATCH("/api/documents/:id", h.PatchDocument)
+	r.DELETE("/api/documents/:id", h.DeleteDocument)
 	evalHandler := newEvalHTTPHandler(h)
 	r.POST("/api/eval/run", evalHandler.Run)
 	r.POST("/api/eval/mark", evalHandler.Mark)
@@ -207,9 +215,18 @@ func top1Final(top []retrieve.MergedChunk) float64 {
 	return top[0].Final
 }
 
-// Chunks 健康检查：返回库里的段数。
+// Chunks 健康检查：返回库里的段数（可选 ?project_slug=... 过滤）。
 func (h *Handler) Chunks(c *gin.Context) {
-	n, err := h.Store.CountChunks()
+	projectSlug := strings.TrimSpace(c.Query("project_slug"))
+	var (
+		n   int
+		err error
+	)
+	if projectSlug != "" && projectSlug != "auto" && projectSlug != "all" {
+		n, err = h.Store.CountChunksByProject(projectSlug)
+	} else {
+		n, err = h.Store.CountChunks()
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

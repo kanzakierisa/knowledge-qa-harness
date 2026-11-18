@@ -17,10 +17,12 @@ type Endpoint struct {
 
 // Config 是全局配置。
 type Config struct {
-	Chat     Endpoint // 对话模型接入
-	Embed    Endpoint // embedding 模型接入（可与对话不同服务商）
-	MySQLDSN string
-	HTTPAddr string // 可选监听地址，便于与本机其他服务共存。
+	Chat          Endpoint // 对话模型接入
+	Embed         Endpoint // embedding 模型接入（可与对话不同服务商）
+	VLM           Endpoint // 可选：多模态视觉模型接入（扫描件 PDF / 图片转 Markdown）
+	ConvertEngine string   // 可选：native（默认纯 Go） | markitdown
+	MySQLDSN      string
+	HTTPAddr      string // 可选监听地址，便于与本机其他服务共存。
 }
 
 // requiredVars 5 个必需环境变量（总体规格 §3）。
@@ -60,6 +62,13 @@ func Load() (*Config, error) {
 		APIKey:  getenv("EMBED_API_KEY", c.Chat.APIKey),
 		Model:   os.Getenv("LLM_EMBED_MODEL"),
 	}
+	// 可选 VLM 端点：未配置 LLM_VLM_MODEL 时为空，遇扫描件/图片时显式提示
+	c.VLM = Endpoint{
+		BaseURL: getenv("VLM_BASE_URL", c.Chat.BaseURL),
+		APIKey:  getenv("VLM_API_KEY", c.Chat.APIKey),
+		Model:   strings.TrimSpace(os.Getenv("LLM_VLM_MODEL")),
+	}
+	c.ConvertEngine = strings.ToLower(strings.TrimSpace(getenv("CONVERT_ENGINE", "native")))
 	return c, nil
 }
 
