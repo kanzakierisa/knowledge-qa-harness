@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -177,6 +178,27 @@ func isAllowedIntroSentence(s string, idx, total int) bool {
 // 允许少量前后缀差异：只要输出包含固定拒答文案且正文中没有给出任何引用编号，即视为拒答。
 func IsRefusal(answer string) bool {
 	return strings.Contains(answer, RefuseAnswer) && !citeRe.MatchString(stripCodeSpans(answer))
+}
+
+// ExtractCitedNumbers 从答案非代码正文中提取实际引用到的编号 [n]（去重并升序返回）。
+func ExtractCitedNumbers(answer string) []int {
+	stripped := stripCodeSpans(answer)
+	matches := citeRe.FindAllStringSubmatch(stripped, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[int]bool, len(matches))
+	nums := make([]int, 0, len(matches))
+	for _, m := range matches {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n <= 0 || seen[n] {
+			continue
+		}
+		seen[n] = true
+		nums = append(nums, n)
+	}
+	sort.Ints(nums)
+	return nums
 }
 
 // validateCitations 校验答案中的每个 [n] 都在 1~maxN 之间，且所有实质性陈述句与结尾句均含引用。
