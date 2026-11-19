@@ -146,18 +146,12 @@
     }
 
     .app-shell {
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg);
-    }
-
-    /* 问答视图在桌面端严格锁死 100dvh，发消息不撑高页面 */
-    body.is-ask-view .app-shell {
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
     }
 
     /* ---- 顶部导航栏（高度放大1/3至39px，字体图标大小不变，垂直居中） ---- */
@@ -188,11 +182,6 @@
       height: 15px;
       background: var(--border);
       flex-shrink: 0;
-    }
-
-    body:not(.is-ask-view) #toggle-left-btn,
-    body:not(.is-ask-view) .topbar-sep {
-      display: none;
     }
 
     .tabs {
@@ -1882,49 +1871,55 @@
       color: var(--error-text);
     }
 
-    /* ---- 资料库治理 & 盲区与反馈 ---- */
-    .gov-page {
-      width: 100%;
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 18px 18px 28px;
-      flex: 1;
-    }
-
-    .gov-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .gov-top-grid {
+    /* ---- 资料库治理 & 盲区与反馈（方案 A：全局三栏同构 · shadcn Tasks 极简表格 + Mail/Plane Triage 主从分拣） ---- */
+    .gov-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 16px;
-    }
-
-    .gov-card {
-      padding: 18px 20px;
-      background: var(--surface-subtle);
-      border-radius: 12px;
-    }
-
-    .gov-card-title {
-      margin: 0 0 12px;
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
 
-    .gov-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px 12px;
+    .gov-kpi-card {
+      padding: 10px 12px;
+      background: var(--sidebar-card);
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .gov-kpi-label {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .gov-kpi-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.25;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .gov-kpi-val.is-accent {
+      color: var(--accent-text);
+    }
+
+    .gov-kpi-val.is-ok {
+      color: var(--ok-text);
+    }
+
+    .gov-kpi-val.is-warn {
+      color: var(--warn-text);
+    }
+
+    .gov-side-card {
+      padding: 12px 13px;
+      background: var(--sidebar-card);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .gov-field {
@@ -1943,12 +1938,13 @@
     .gov-select {
       width: 100%;
       padding: 7px 10px;
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--text);
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 7px;
       outline: none;
+      transition: border-color 0.15s ease;
     }
 
     .gov-input:focus,
@@ -1956,24 +1952,59 @@
       border-color: var(--accent);
     }
 
-    .gov-actions {
-      margin-top: 12px;
+    .gov-toolbar-right {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .gov-toolbar-search {
+      width: 140px;
+      padding: 4px 8px;
+      font-size: 12px;
+      color: var(--text);
+      background: var(--surface-subtle);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .gov-toolbar-search:focus {
+      background: var(--bg);
+      border-color: var(--accent);
+    }
+
+    .gov-toolbar-select {
+      max-width: 108px;
+      padding: 4px 6px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--surface-subtle);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .gov-toolbar-select:focus {
+      border-color: var(--accent);
+      background: var(--bg);
     }
 
     .btn-primary-sm {
-      padding: 7px 14px;
-      font-size: 13px;
+      padding: 6px 13px;
+      font-size: 12.5px;
       font-weight: 600;
       color: #ffffff;
       background: var(--accent);
       border: none;
       border-radius: 7px;
       cursor: pointer;
+      white-space: nowrap;
       transition: background-color 0.15s ease, opacity 0.15s ease;
     }
 
@@ -1995,6 +2026,7 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      white-space: nowrap;
       transition: background-color 0.15s ease, color 0.15s ease;
     }
 
@@ -2012,6 +2044,7 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     .btn-danger-sm:hover:not(:disabled) {
@@ -2024,6 +2057,10 @@
       border-radius: 8px;
       font-size: 12.5px;
       line-height: 1.5;
+    }
+
+    .gov-inline-msg {
+      margin: 6px 14px 0;
     }
 
     .gov-msg.is-ok {
@@ -2044,64 +2081,137 @@
     .gov-filters {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
+    }
+
+    /* shadcn Tasks 极简无边框数据表 */
+    .gov-table-wrap {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .shadcn-table-head {
+      flex: 0 0 auto;
+      display: grid;
+      grid-template-columns: minmax(170px, 2fr) minmax(105px, 1fr) 64px 52px 216px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface-subtle);
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+      user-select: none;
+    }
+
+    .shadcn-table-scroll {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .doc-list {
       display: flex;
       flex-direction: column;
-      gap: 9px;
-      margin-top: 10px;
     }
 
     .doc-row {
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: var(--bg);
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: minmax(170px, 2fr) minmax(105px, 1fr) 64px 52px 216px;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px 14px;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--hairline);
+      background: transparent;
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+    }
+
+    .doc-row:hover {
+      background: var(--surface-subtle);
+    }
+
+    .doc-row.is-selected {
+      background: var(--accent-soft);
     }
 
     .doc-row.is-deprecated {
-      opacity: 0.85;
+      opacity: 0.82;
     }
 
-    .doc-main {
+    .doc-cell-title {
       min-width: 0;
-      flex: 1 1 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .doc-title-line {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       gap: 6px;
-      font-size: 13.8px;
-      font-weight: 700;
+      font-size: 13.2px;
+      font-weight: 600;
       color: var(--text);
+      min-width: 0;
     }
 
-    .doc-meta-line {
-      margin-top: 4px;
-      font-size: 12px;
+    .doc-title-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .doc-sub-filename {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .doc-cell-text {
+      font-size: 12.2px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .doc-cell-meta {
+      font-size: 11.5px;
       color: var(--text-muted);
       display: flex;
-      flex-wrap: wrap;
-      gap: 4px 10px;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .doc-cell-meta span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .doc-badge {
-      display: inline-block;
-      padding: 1px 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px;
       font-size: 11px;
       font-weight: 600;
-      border-radius: 4px;
+      border-radius: 5px;
       background: var(--surface-muted);
       color: var(--text-secondary);
+      white-space: nowrap;
+      width: fit-content;
     }
 
     .doc-badge.is-fmt {
@@ -2127,21 +2237,21 @@
     .doc-ops {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
       flex-shrink: 0;
     }
 
     .empty-hint {
-      padding: 18px 12px;
+      padding: 28px 16px;
       text-align: center;
-      font-size: 13px;
+      font-size: 12.8px;
       color: var(--text-muted);
-      background: var(--bg);
-      border-radius: 8px;
     }
 
     .reg-summary {
-      margin-top: 6px;
+      margin-top: 8px;
       padding: 11px 12px;
       background: var(--sidebar-card);
       border-radius: 9px;
@@ -2197,44 +2307,134 @@
       font-size: 11.5px;
     }
 
-    .radar-item {
-      padding: 12px 14px;
-      border-radius: 10px;
-      background: var(--bg);
+    /* Plane Triage & shadcn Mail 主从分拣列表 */
+    .radar-center-scroll {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
+    }
+
+    .triage-block {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .triage-section-head {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      padding: 8px 16px;
+      background: var(--surface-subtle);
+      border-top: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
       gap: 8px;
+    }
+
+    .triage-section-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .triage-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .radar-item {
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--hairline);
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+    }
+
+    .radar-item:hover {
+      background: var(--surface-subtle);
+    }
+
+    .radar-item.is-selected {
+      background: var(--accent-soft);
     }
 
     .radar-top {
       display: flex;
       flex-wrap: wrap;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 8px 12px;
     }
 
     .radar-main {
       min-width: 0;
-      flex: 1 1 320px;
+      flex: 1 1 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .radar-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .triage-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      background: var(--text-muted);
+    }
+
+    .triage-dot.is-open {
+      background: var(--warn-accent);
+      box-shadow: 0 0 0 3px var(--warn-bg);
+    }
+
+    .triage-dot.is-resolved {
+      background: var(--ok-text);
+    }
+
+    .triage-dot.is-down {
+      background: var(--error-text);
+      box-shadow: 0 0 0 3px var(--error-bg);
+    }
+
+    .triage-dot.is-up {
+      background: var(--ok-text);
     }
 
     .radar-title {
-      font-size: 13.8px;
-      font-weight: 700;
+      font-size: 13.4px;
+      font-weight: 600;
       color: var(--text);
       overflow-wrap: anywhere;
     }
 
     .radar-badges {
-      margin-top: 4px;
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 5px;
     }
 
     .radar-meta {
-      font-size: 12px;
+      font-size: 11.8px;
       color: var(--text-muted);
       display: flex;
       flex-wrap: wrap;
@@ -2245,17 +2445,84 @@
     .radar-ops {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      align-items: center;
+      gap: 5px;
       flex-shrink: 0;
     }
 
-    .promote-box {
+    /* 右侧审阅与详情面板 (Inspector Sheet) */
+    .inspector-card {
+      padding: 13px 14px;
+      background: var(--sidebar-card);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .inspector-title {
+      margin: 0;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .inspector-kv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      font-size: 12.2px;
+    }
+
+    .inspector-kv-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .inspector-kv-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .inspector-kv-key {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .inspector-kv-val {
+      color: var(--text);
+      font-weight: 500;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .inspector-quote-box {
       padding: 10px 12px;
       background: var(--surface-subtle);
       border-radius: 8px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .promote-box {
+      padding: 12px 13px;
+      background: var(--sidebar-card);
+      border-radius: 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
     .promote-actions {
@@ -2285,8 +2552,10 @@
 
     /* 响应式断点：平板与手机端切换单栏聚焦 */
     @media (max-width: 1120px) {
+      .app-shell,
       body.is-ask-view .app-shell {
         height: auto;
+        min-height: 100dvh;
         overflow: visible;
       }
 
@@ -2319,6 +2588,16 @@
         display: none;
       }
 
+      .shadcn-table-head {
+        display: none;
+      }
+
+      .doc-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+
       .chat-stream {
         padding: 12px 14px;
       }
@@ -2336,14 +2615,6 @@
       .tab-btn {
         padding: 2px 7px;
         font-size: 11.5px;
-      }
-
-      .gov-page {
-        padding: 12px;
-      }
-
-      .gov-top-grid {
-        grid-template-columns: 1fr;
       }
 
       .meta-corner {
@@ -2747,16 +3018,69 @@
       </div>
     </div>
 
-    <!-- 页签 2：资料库治理 -->
-    <main id="tab-docs" class="gov-page" hidden>
-      <div class="gov-stack">
-        <div class="gov-top-grid">
-          <div class="gov-card">
-            <h2 class="gov-card-title">新建项目空间</h2>
-            <form id="project-form" novalidate>
-              <div class="gov-grid">
+    <!-- 页签 2：资料库治理（方案 A：三栏同构 · 左空间树与新建 + 中 shadcn Tasks 数据表 + 右热入库/切片预览抽屉） -->
+    <main id="tab-docs" class="tab-ask-wrap" hidden>
+      <div id="docs-workspace" class="workspace-3col">
+        <button id="toggle-docs-right-btn" type="button" class="icon-btn is-active desktop-only-toggle right-pinned-toggle" title="收起右侧热入库与切片预览栏" aria-label="切换右侧热入库与切片预览栏">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="3" rx="2" />
+            <path d="M15 3v18" />
+          </svg>
+        </button>
+
+        <!-- 左栏：项目空间导航 + 语料健康 KPI + 新建项目空间 -->
+        <aside id="pane-docs-projects" class="pane pane-left" aria-label="项目空间与语料概览">
+          <div class="pane-head">
+            <h2 class="pane-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>项目空间与概览</span>
+            </h2>
+            <button id="docs-reset-proj-btn" type="button" class="btn-ghost-sm">全部项目</button>
+          </div>
+
+          <div class="sidebar-stack">
+            <div class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">项目空间目录</h3>
+                <span class="doc-badge is-fmt">点击过滤</span>
+              </div>
+              <div id="docs-project-nav" class="project-chips" style="max-height:190px"></div>
+            </div>
+
+            <div class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">当前视图统计</h3>
+              </div>
+              <div class="gov-kpi-grid">
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">文档总数</span>
+                  <span id="kpi-docs-total" class="gov-kpi-val">0</span>
+                </div>
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">生效中 (active)</span>
+                  <span id="kpi-docs-active" class="gov-kpi-val is-ok">0</span>
+                </div>
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">已废弃</span>
+                  <span id="kpi-docs-deprecated" class="gov-kpi-val is-warn">0</span>
+                </div>
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">切片总段数</span>
+                  <span id="kpi-docs-chunks" class="gov-kpi-val is-accent">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">新建项目空间</h3>
+                <span class="doc-badge">实时生效</span>
+              </div>
+              <form id="project-form" class="gov-side-card" novalidate>
                 <label class="gov-field">
-                  <span class="gov-label">项目标识（slug，仅小写字母/数字/连字符）</span>
+                  <span class="gov-label">项目标识（slug，小写字母/数字/连字符）</span>
                   <input id="proj-slug" class="gov-input" type="text" placeholder="例如：events" required />
                 </label>
                 <label class="gov-field">
@@ -2767,120 +3091,306 @@
                   <span class="gov-label">说明（可选）</span>
                   <input id="proj-desc" class="gov-input" type="text" placeholder="例如：活动排期与规则" />
                 </label>
-              </div>
-              <div class="gov-actions">
-                <span class="section-sub">创建后将在问答左侧主题与上传列表中实时可选</span>
-                <button id="proj-submit" class="btn-primary-sm" type="submit">创建项目</button>
-              </div>
-              <div id="proj-msg" class="gov-msg" hidden></div>
-            </form>
+                <button id="proj-submit" class="btn-primary-sm" type="submit" style="width:100%">创建项目</button>
+                <div id="proj-msg" class="gov-msg" hidden></div>
+              </form>
+            </div>
           </div>
+        </aside>
 
-          <div class="gov-card">
-            <h2 class="gov-card-title">多格式文档热入库</h2>
-            <form id="upload-form" novalidate>
-              <div class="gov-grid">
-                <label class="gov-field">
-                  <span class="gov-label">选择文件（.md / .txt / .docx / .xlsx / .pdf，支持多选）</span>
-                  <input id="upload-file" class="gov-input" type="file" multiple accept=".md,.markdown,.txt,.docx,.xlsx,.pdf,.png,.jpg,.jpeg,.webp" required />
-                </label>
-                <label class="gov-field">
-                  <span class="gov-label">所属项目</span>
-                  <select id="upload-project" class="gov-select"></select>
-                </label>
-                <label class="gov-field">
-                  <span class="gov-label">文档层级</span>
-                  <select id="upload-level" class="gov-select">
-                    <option value="spec">spec（正式规范）</option>
-                    <option value="rfc">rfc（方案评审）</option>
-                    <option value="note">note（会议纪要）</option>
-                  </select>
-                </label>
-                <label class="gov-field">
-                  <span class="gov-label">负责人（可选）</span>
-                  <input id="upload-owner" class="gov-input" type="text" placeholder="例如：张三" />
-                </label>
-              </div>
-              <div class="gov-actions">
-                <label class="gov-checkbox">
-                  <input id="upload-overwrite" type="checkbox" />
-                  <span>同名文档内容未变也强制覆盖重切</span>
-                </label>
-                <button id="upload-submit" class="btn-primary-sm" type="submit">上传并切片入库</button>
-              </div>
-              <div id="upload-msg" class="gov-msg" hidden></div>
-              <div id="upload-regression" class="reg-summary" hidden></div>
-            </form>
-          </div>
-        </div>
+        <!-- 中栏：shadcn Tasks 极简无边框数据表 -->
+        <section id="pane-docs-table" class="pane pane-center is-mobile-active" aria-label="资料库文档列表">
+          <div class="pane-head">
+            <div class="chat-head-left">
+              <span id="docs-active-proj-pill" class="scope-pill">项目：全部项目空间</span>
+              <span id="docs-count-badge" class="doc-badge">共 0 篇</span>
+            </div>
 
-        <div class="gov-card">
-          <div class="gov-card-title">
-            <span>资料库文档列表</span>
-            <div class="gov-filters">
-              <select id="filter-project" class="gov-select" aria-label="按项目过滤" style="width:auto">
+            <div class="gov-toolbar-right">
+              <input id="docs-search-input" class="gov-toolbar-search" type="search" placeholder="搜索标题、文件名、负责人…" aria-label="搜索文档" />
+              <select id="filter-project" class="gov-toolbar-select" aria-label="按项目过滤">
                 <option value="">全部项目</option>
               </select>
-              <select id="filter-status" class="gov-select" aria-label="按状态过滤" style="width:auto">
+              <select id="filter-status" class="gov-toolbar-select" aria-label="按状态过滤">
                 <option value="">全部状态</option>
                 <option value="active">仅生效（active）</option>
                 <option value="deprecated">仅废弃（deprecated）</option>
               </select>
+              <select id="filter-level" class="gov-toolbar-select" aria-label="按层级过滤">
+                <option value="">全部层级</option>
+                <option value="spec">spec（规范）</option>
+                <option value="rfc">rfc（评审）</option>
+                <option value="note">note（纪要）</option>
+              </select>
               <button id="docs-refresh" type="button" class="btn-ghost-sm">刷新</button>
+              <button id="docs-open-upload-btn" type="button" class="btn-primary-sm">+ 热入库</button>
             </div>
           </div>
-          <div id="docs-msg" class="gov-msg" hidden></div>
-          <div id="docs-list" class="doc-list"></div>
-        </div>
+
+          <div id="docs-msg" class="gov-msg gov-inline-msg" hidden></div>
+
+          <div class="gov-table-wrap">
+            <div class="shadcn-table-head">
+              <span>文档标题 / 文件与负责人</span>
+              <span>项目与层级</span>
+              <span>状态</span>
+              <span>切片</span>
+              <span style="text-align:right">操作</span>
+            </div>
+            <div class="shadcn-table-scroll">
+              <div id="docs-list" class="doc-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 右栏：多格式文档热入库 & 切片详情预览抽屉 -->
+        <aside id="pane-docs-inspector" class="pane pane-right" aria-label="热入库与文档切片预览">
+          <div class="pane-head">
+            <h2 class="pane-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span>入库与切片</span>
+            </h2>
+
+            <div class="right-head-actions">
+              <div class="right-mode-switch" role="tablist" aria-label="右侧抽屉模式">
+                <button id="docs-right-mode-upload" type="button" class="right-mode-btn is-active">多格式热入库</button>
+                <button id="docs-right-mode-preview" type="button" class="right-mode-btn">切片预览</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pane-scroll">
+            <!-- 抽屉模式 1：多格式文档热入库 & Doc CI/CD 局部回归体检单 -->
+            <div id="docs-right-upload-view">
+              <form id="upload-form" class="gov-side-card" novalidate>
+                <div class="side-section-head">
+                  <h3 class="side-section-title">多格式文档热入库</h3>
+                  <span class="doc-badge is-fmt">支持多选</span>
+                </div>
+
+                <label class="gov-field">
+                  <span class="gov-label">选择文件（.md / .txt / .docx / .xlsx / .pdf / 图片）</span>
+                  <input id="upload-file" class="gov-input" type="file" multiple accept=".md,.markdown,.txt,.docx,.xlsx,.pdf,.png,.jpg,.jpeg,.webp" required />
+                </label>
+
+                <label class="gov-field">
+                  <span class="gov-label">所属项目</span>
+                  <select id="upload-project" class="gov-select"></select>
+                </label>
+
+                <div class="gov-kpi-grid">
+                  <label class="gov-field">
+                    <span class="gov-label">文档层级</span>
+                    <select id="upload-level" class="gov-select">
+                      <option value="spec">spec（正式规范）</option>
+                      <option value="rfc">rfc（方案评审）</option>
+                      <option value="note">note（会议纪要）</option>
+                    </select>
+                  </label>
+                  <label class="gov-field">
+                    <span class="gov-label">负责人（可选）</span>
+                    <input id="upload-owner" class="gov-input" type="text" placeholder="例如：张三" />
+                  </label>
+                </div>
+
+                <div class="overwrite-row">
+                  <label class="gov-checkbox">
+                    <input id="upload-overwrite" type="checkbox" />
+                    <span>同名文档内容未变也强制覆盖重切</span>
+                  </label>
+                </div>
+
+                <button id="upload-submit" class="btn-primary-sm" type="submit" style="width:100%">上传并切片入库</button>
+                <div id="upload-msg" class="gov-msg" hidden></div>
+                <div id="upload-regression" class="reg-summary" hidden></div>
+              </form>
+            </div>
+
+            <!-- 抽屉模式 2：选中文档的切片与原文预览 -->
+            <div id="docs-right-preview-view" hidden>
+              <div id="docs-preview-empty" class="right-empty">
+                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">尚未选择要检视的文档</p>
+                <p style="margin:0;">点击中间表格中的任意文档行或行右侧的 <strong>预览</strong> 按钮，即可在此检视该文档的全部入库切片与元数据。</p>
+              </div>
+              <div id="docs-preview-box" hidden></div>
+            </div>
+          </div>
+        </aside>
       </div>
     </main>
 
-    <!-- 页签 3：盲区与反馈 -->
-    <main id="tab-radar" class="gov-page" hidden>
-      <div class="gov-stack">
-        <div class="gov-card">
-          <div class="gov-card-title">
-            <span>团队知识盲区雷达</span>
-            <div class="gov-filters">
-              <select id="gaps-filter-project" class="gov-select" aria-label="按盲区项目过滤" style="width:auto">
-                <option value="">全部项目</option>
-                <option value="auto">自动路由（auto）</option>
-              </select>
-              <select id="gaps-filter-status" class="gov-select" aria-label="按盲区状态过滤" style="width:auto">
-                <option value="open">待补充（open）</option>
-                <option value="resolved">已解决（resolved）</option>
-                <option value="ignored">已忽略（ignored）</option>
-                <option value="all">全部状态</option>
-              </select>
-              <button id="gaps-refresh" type="button" class="btn-ghost-sm">刷新</button>
-            </div>
-          </div>
-          <div id="gaps-msg" class="gov-msg" hidden></div>
-          <div id="gaps-list" class="doc-list"></div>
-        </div>
+    <!-- 页签 3：盲区与反馈（方案 A：三栏同构 · 左分拣视图与活评测 + 中 Plane Triage / Mail 队列 + 右审阅与转正工作台） -->
+    <main id="tab-radar" class="tab-ask-wrap" hidden>
+      <div id="radar-workspace" class="workspace-3col">
+        <button id="toggle-radar-right-btn" type="button" class="icon-btn is-active desktop-only-toggle right-pinned-toggle" title="收起右侧审阅与转正面板" aria-label="切换右侧审阅与转正面板">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="3" rx="2" />
+            <path d="M15 3v18" />
+          </svg>
+        </button>
 
-        <div class="gov-card">
-          <div class="gov-card-title">
-            <span>用户反馈队列与活评测转正</span>
-            <div class="gov-filters">
-              <select id="fb-filter-vote" class="gov-select" aria-label="按反馈类型过滤" style="width:auto">
-                <option value="">全部反馈</option>
-                <option value="down">仅 👎 有问题</option>
-                <option value="up">仅 👍 准确</option>
-              </select>
-              <select id="fb-filter-promoted" class="gov-select" aria-label="按转正状态过滤" style="width:auto">
-                <option value="">全部状态</option>
-                <option value="pending">仅待转正</option>
-                <option value="promoted">仅已转正</option>
-              </select>
-              <button id="fb-run-eval" type="button" class="btn-primary-sm">运行 feedback 活评测</button>
-              <button id="fb-refresh" type="button" class="btn-ghost-sm">刷新</button>
+        <!-- 左栏：分拣收件箱视图 + 统计概览 + 活评测回归中心 -->
+        <aside id="pane-radar-nav" class="pane pane-left" aria-label="分拣视图与活评测中心">
+          <div class="pane-head">
+            <h2 class="pane-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" />
+              </svg>
+              <span>分拣与活评测</span>
+            </h2>
+            <button id="radar-refresh-all-btn" type="button" class="btn-ghost-sm">全部刷新</button>
+          </div>
+
+          <div class="sidebar-stack">
+            <div class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">分拣收件箱视图</h3>
+                <span class="doc-badge is-fmt">Triage</span>
+              </div>
+              <div id="radar-view-nav" class="project-chips">
+                <button type="button" class="project-chip is-active" data-radar-view="all">
+                  <span>全部队列（同屏分拣）</span>
+                  <span id="nav-radar-all-count" style="font-size:11px;opacity:0.8">全部</span>
+                </button>
+                <button type="button" class="project-chip" data-radar-view="gaps">
+                  <span>团队知识盲区雷达</span>
+                  <span id="nav-radar-gaps-count" style="font-size:11px;opacity:0.8">0</span>
+                </button>
+                <button type="button" class="project-chip" data-radar-view="feedback">
+                  <span>用户反馈与待转正</span>
+                  <span id="nav-radar-fb-count" style="font-size:11px;opacity:0.8">0</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">闭环治理指标</h3>
+              </div>
+              <div class="gov-kpi-grid">
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">待补充盲区</span>
+                  <span id="kpi-gaps-open" class="gov-kpi-val is-warn">0</span>
+                </div>
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">已解决盲区</span>
+                  <span id="kpi-gaps-resolved" class="gov-kpi-val is-ok">0</span>
+                </div>
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">待转正反馈</span>
+                  <span id="kpi-fb-pending" class="gov-kpi-val is-accent">0</span>
+                </div>
+                <div class="gov-kpi-card">
+                  <span class="gov-kpi-label">已转正评测题</span>
+                  <span id="kpi-fb-promoted" class="gov-kpi-val is-ok">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">活评测回归中心</h3>
+                <span class="doc-badge">feedback 集</span>
+              </div>
+              <div class="gov-side-card">
+                <span class="project-bar-label">一键对已转正的线上反馈评测集（question_set=feedback）执行端到端检索命中率、引用准确率与拒答正确率回归。</span>
+                <button id="fb-run-eval" type="button" class="btn-primary-sm" style="width:100%">运行 feedback 活评测</button>
+                <div id="fb-eval-msg" class="gov-msg" hidden></div>
+              </div>
             </div>
           </div>
-          <div id="fb-msg" class="gov-msg" hidden></div>
-          <div id="fb-eval-msg" class="gov-msg" hidden></div>
-          <div id="fb-list" class="doc-list"></div>
-        </div>
+        </aside>
+
+        <!-- 中栏：Plane Triage / shadcn Mail 主从极简分拣队列 -->
+        <section id="pane-radar-list" class="pane pane-center is-mobile-active" aria-label="盲区与反馈分拣队列">
+          <div class="pane-head">
+            <div class="chat-head-left">
+              <span id="radar-active-view-pill" class="scope-pill">分拣视图：全部队列（盲区 + 反馈）</span>
+            </div>
+            <div class="gov-toolbar-right">
+              <input id="radar-search-input" class="gov-toolbar-search" type="search" placeholder="搜索问题、备注、近似文档…" aria-label="搜索盲区与反馈" />
+            </div>
+          </div>
+
+          <div class="radar-center-scroll">
+            <!-- 区块 1：团队知识盲区雷达 -->
+            <div id="radar-gaps-block" class="triage-block">
+              <div class="triage-section-head">
+                <div class="triage-section-title">
+                  <span>团队知识盲区雷达</span>
+                  <span id="gaps-count-badge" class="doc-badge">0 条</span>
+                </div>
+                <div class="gov-filters">
+                  <select id="gaps-filter-project" class="gov-toolbar-select" aria-label="按盲区项目过滤">
+                    <option value="">全部项目</option>
+                    <option value="auto">自动路由（auto）</option>
+                  </select>
+                  <select id="gaps-filter-status" class="gov-toolbar-select" aria-label="按盲区状态过滤">
+                    <option value="open">待补充（open）</option>
+                    <option value="resolved">已解决（resolved）</option>
+                    <option value="ignored">已忽略（ignored）</option>
+                    <option value="all">全部状态</option>
+                  </select>
+                  <button id="gaps-refresh" type="button" class="btn-ghost-sm">刷新</button>
+                </div>
+              </div>
+              <div id="gaps-msg" class="gov-msg gov-inline-msg" hidden></div>
+              <div id="gaps-list" class="triage-list"></div>
+            </div>
+
+            <!-- 区块 2：用户反馈队列与活评测转正 -->
+            <div id="radar-fb-block" class="triage-block">
+              <div class="triage-section-head">
+                <div class="triage-section-title">
+                  <span>用户反馈队列与活评测转正</span>
+                  <span id="fb-count-badge" class="doc-badge">0 条</span>
+                </div>
+                <div class="gov-filters">
+                  <select id="fb-filter-vote" class="gov-toolbar-select" aria-label="按反馈类型过滤">
+                    <option value="">全部反馈</option>
+                    <option value="down">仅 👎 有问题</option>
+                    <option value="up">仅 👍 准确</option>
+                  </select>
+                  <select id="fb-filter-promoted" class="gov-toolbar-select" aria-label="按转正状态过滤">
+                    <option value="">全部状态</option>
+                    <option value="pending">仅待转正</option>
+                    <option value="promoted">仅已转正</option>
+                  </select>
+                  <button id="fb-refresh" type="button" class="btn-ghost-sm">刷新</button>
+                </div>
+              </div>
+              <div id="fb-msg" class="gov-msg gov-inline-msg" hidden></div>
+              <div id="fb-list" class="triage-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 右栏：shadcn Mail 详情审阅与活评测转正工作台 -->
+        <aside id="pane-radar-inspector" class="pane pane-right" aria-label="盲区与反馈审阅详情">
+          <div class="pane-head">
+            <h2 class="pane-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              <span>审阅与转正</span>
+            </h2>
+            <span id="radar-inspector-badge" class="doc-badge">未选择</span>
+          </div>
+
+          <div class="pane-scroll">
+            <div id="radar-inspector-empty" class="right-empty">
+              <p style="margin:0 0 6px;font-weight:600;color:var(--text);">选择左侧或中间条目进行审阅</p>
+              <p style="margin:0;">点击中间队列中的任意「知识盲区」或「用户反馈」，即可在此检视完整问答原文、Top1 检索诊断信息，或填写标准答案将其一键转正为活评测题。</p>
+            </div>
+            <div id="radar-inspector-content" hidden></div>
+          </div>
+        </aside>
       </div>
     </main>
 
@@ -4950,11 +5460,41 @@
         nextFile();
       });
 
-      // ---- 阶段 9 & 12：页签切换、资料库治理与盲区反馈闭环 ----
+      // ---- 阶段 9 & 12：页签切换、资料库治理（方案 A 三栏）与盲区反馈闭环（方案 A 三栏分拣） ----
       var tabButtons = document.querySelectorAll('.tab-btn');
       var tabAskEl = document.getElementById('tab-ask');
       var tabDocsEl = document.getElementById('tab-docs');
       var tabRadarEl = document.getElementById('tab-radar');
+
+      var docsWorkspaceEl = document.getElementById('docs-workspace');
+      var radarWorkspaceEl = document.getElementById('radar-workspace');
+      var toggleDocsRightBtn = document.getElementById('toggle-docs-right-btn');
+      var toggleRadarRightBtn = document.getElementById('toggle-radar-right-btn');
+
+      var docsProjectNav = document.getElementById('docs-project-nav');
+      var docsResetProjBtn = document.getElementById('docs-reset-proj-btn');
+      var kpiDocsTotal = document.getElementById('kpi-docs-total');
+      var kpiDocsActive = document.getElementById('kpi-docs-active');
+      var kpiDocsDeprecated = document.getElementById('kpi-docs-deprecated');
+      var kpiDocsChunks = document.getElementById('kpi-docs-chunks');
+
+      var docsActiveProjPill = document.getElementById('docs-active-proj-pill');
+      var docsCountBadge = document.getElementById('docs-count-badge');
+      var docsSearchInput = document.getElementById('docs-search-input');
+      var filterProjectSelect = document.getElementById('filter-project');
+      var filterStatusSelect = document.getElementById('filter-status');
+      var filterLevelSelect = document.getElementById('filter-level');
+      var docsRefreshBtn = document.getElementById('docs-refresh');
+      var docsOpenUploadBtn = document.getElementById('docs-open-upload-btn');
+      var docsMsg = document.getElementById('docs-msg');
+      var docsList = document.getElementById('docs-list');
+
+      var docsRightModeUploadBtn = document.getElementById('docs-right-mode-upload');
+      var docsRightModePreviewBtn = document.getElementById('docs-right-mode-preview');
+      var docsRightUploadView = document.getElementById('docs-right-upload-view');
+      var docsRightPreviewView = document.getElementById('docs-right-preview-view');
+      var docsPreviewEmpty = document.getElementById('docs-preview-empty');
+      var docsPreviewBox = document.getElementById('docs-preview-box');
 
       var projectForm = document.getElementById('project-form');
       var projSlugInput = document.getElementById('proj-slug');
@@ -4973,11 +5513,22 @@
       var uploadMsg = document.getElementById('upload-msg');
       var uploadRegressionEl = document.getElementById('upload-regression');
 
-      var filterProjectSelect = document.getElementById('filter-project');
-      var filterStatusSelect = document.getElementById('filter-status');
-      var docsRefreshBtn = document.getElementById('docs-refresh');
-      var docsMsg = document.getElementById('docs-msg');
-      var docsList = document.getElementById('docs-list');
+      var radarRefreshAllBtn = document.getElementById('radar-refresh-all-btn');
+      var radarViewNav = document.getElementById('radar-view-nav');
+      var navRadarAllCount = document.getElementById('nav-radar-all-count');
+      var navRadarGapsCount = document.getElementById('nav-radar-gaps-count');
+      var navRadarFbCount = document.getElementById('nav-radar-fb-count');
+      var kpiGapsOpen = document.getElementById('kpi-gaps-open');
+      var kpiGapsResolved = document.getElementById('kpi-gaps-resolved');
+      var kpiFbPending = document.getElementById('kpi-fb-pending');
+      var kpiFbPromoted = document.getElementById('kpi-fb-promoted');
+
+      var radarActiveViewPill = document.getElementById('radar-active-view-pill');
+      var radarSearchInput = document.getElementById('radar-search-input');
+      var radarGapsBlock = document.getElementById('radar-gaps-block');
+      var radarFbBlock = document.getElementById('radar-fb-block');
+      var gapsCountBadge = document.getElementById('gaps-count-badge');
+      var fbCountBadge = document.getElementById('fb-count-badge');
 
       var gapsFilterProject = document.getElementById('gaps-filter-project');
       var gapsFilterStatus = document.getElementById('gaps-filter-status');
@@ -4993,8 +5544,81 @@
       var fbEvalMsg = document.getElementById('fb-eval-msg');
       var fbList = document.getElementById('fb-list');
 
+      var radarInspectorBadge = document.getElementById('radar-inspector-badge');
+      var radarInspectorEmpty = document.getElementById('radar-inspector-empty');
+      var radarInspectorContent = document.getElementById('radar-inspector-content');
+
+      var cachedGovernanceDocs = [];
+      var selectedGovDocId = null;
+      var cachedGapsList = [];
+      var cachedFeedbackList = [];
+      var selectedRadarItem = null; // { kind: 'gap' | 'feedback', id: number }
+      var currentRadarView = 'all';
+
+      function syncAllWorkspacesSidebarState() {
+        if (docsWorkspaceEl) {
+          docsWorkspaceEl.classList.toggle('left-collapsed', !leftSidebarOpen);
+          docsWorkspaceEl.classList.toggle('right-collapsed', !rightSidebarOpen);
+        }
+        if (radarWorkspaceEl) {
+          radarWorkspaceEl.classList.toggle('left-collapsed', !leftSidebarOpen);
+          radarWorkspaceEl.classList.toggle('right-collapsed', !rightSidebarOpen);
+        }
+        if (toggleDocsRightBtn) {
+          toggleDocsRightBtn.classList.toggle('is-active', rightSidebarOpen);
+          toggleDocsRightBtn.setAttribute('title', rightSidebarOpen ? '收起右侧热入库与切片预览栏' : '展开右侧热入库与切片预览栏');
+          toggleDocsRightBtn.setAttribute('aria-expanded', rightSidebarOpen ? 'true' : 'false');
+        }
+        if (toggleRadarRightBtn) {
+          toggleRadarRightBtn.classList.toggle('is-active', rightSidebarOpen);
+          toggleRadarRightBtn.setAttribute('title', rightSidebarOpen ? '收起右侧审阅与转正面板' : '展开右侧审阅与转正面板');
+          toggleRadarRightBtn.setAttribute('aria-expanded', rightSidebarOpen ? 'true' : 'false');
+        }
+      }
+
+      syncAllWorkspacesSidebarState();
+      toggleLeftBtn.addEventListener('click', syncAllWorkspacesSidebarState);
+      toggleRightBtn.addEventListener('click', syncAllWorkspacesSidebarState);
+      if (toggleDocsRightBtn) {
+        toggleDocsRightBtn.addEventListener('click', function () {
+          setRightSidebarOpen(!rightSidebarOpen);
+          syncAllWorkspacesSidebarState();
+        });
+      }
+      if (toggleRadarRightBtn) {
+        toggleRadarRightBtn.addEventListener('click', function () {
+          setRightSidebarOpen(!rightSidebarOpen);
+          syncAllWorkspacesSidebarState();
+        });
+      }
+
+      function setDocsRightMode(mode) {
+        var isPreview = mode === 'preview';
+        docsRightModeUploadBtn.classList.toggle('is-active', !isPreview);
+        docsRightModePreviewBtn.classList.toggle('is-active', isPreview);
+        docsRightUploadView.hidden = isPreview;
+        docsRightPreviewView.hidden = !isPreview;
+      }
+
+      docsRightModeUploadBtn.addEventListener('click', function () {
+        setDocsRightMode('upload');
+      });
+      docsRightModePreviewBtn.addEventListener('click', function () {
+        setDocsRightMode('preview');
+      });
+
+      docsOpenUploadBtn.addEventListener('click', function () {
+        setRightSidebarOpen(true);
+        syncAllWorkspacesSidebarState();
+        setDocsRightMode('upload');
+        if (filterProjectSelect.value) {
+          uploadProjectSelect.value = filterProjectSelect.value;
+        }
+        uploadFileInput.focus();
+      });
+
       function showGovMsg(el, kind, text) {
-        el.className = 'gov-msg ' + kind;
+        el.className = 'gov-msg ' + (el === docsMsg || el === gapsMsg || el === fbMsg ? 'gov-inline-msg ' : '') + kind;
         el.textContent = text;
         el.hidden = false;
       }
@@ -5004,6 +5628,7 @@
         tabAskEl.hidden = name !== 'ask';
         tabDocsEl.hidden = name !== 'docs';
         tabRadarEl.hidden = name !== 'radar';
+        syncAllWorkspacesSidebarState();
         for (var i = 0; i < tabButtons.length; i++) {
           var active = tabButtons[i].getAttribute('data-tab') === name;
           tabButtons[i].classList.toggle('is-active', active);
@@ -5025,6 +5650,72 @@
       for (var t = 0; t < tabButtons.length; t++) {
         tabButtons[t].addEventListener('click', function () {
           switchTab(this.getAttribute('data-tab'));
+        });
+      }
+
+      function renderDocsProjectNav(projects) {
+        if (!docsProjectNav) return;
+        docsProjectNav.textContent = '';
+        var currentSlug = filterProjectSelect.value || '';
+
+        var totalDocs = 0;
+        var totalChunks = 0;
+        for (var i = 0; i < projects.length; i++) {
+          totalDocs += Number(projects[i].doc_count || 0);
+          totalChunks += Number(projects[i].chunk_count || 0);
+        }
+
+        function createNavChip(slug, labelText, metaText) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'project-chip' + (currentSlug === slug ? ' is-active' : '');
+          var left = document.createElement('span');
+          left.textContent = labelText;
+          btn.appendChild(left);
+          if (metaText) {
+            var right = document.createElement('span');
+            right.style.fontSize = '11px';
+            right.style.opacity = '0.8';
+            right.style.flexShrink = '0';
+            right.textContent = metaText;
+            btn.appendChild(right);
+          }
+          btn.addEventListener('click', function () {
+            filterProjectSelect.value = slug;
+            renderDocsProjectNav(cachedProjects);
+            loadDocuments();
+          });
+          return btn;
+        }
+
+        docsProjectNav.appendChild(createNavChip('', '全部项目空间', totalChunks + ' 段'));
+        for (var j = 0; j < projects.length; j++) {
+          var p = projects[j];
+          var pMeta = (typeof p.doc_count === 'number' ? (p.doc_count + '篇/') : '') + (p.chunk_count || 0) + '段';
+          docsProjectNav.appendChild(createNavChip(p.slug, p.name + ' (' + p.slug + ')', pMeta));
+        }
+
+        if (docsActiveProjPill) {
+          if (!currentSlug) {
+            docsActiveProjPill.textContent = '全部空间';
+          } else {
+            var foundName = currentSlug;
+            for (var k = 0; k < projects.length; k++) {
+              if (projects[k].slug === currentSlug) {
+                foundName = projects[k].name;
+                break;
+              }
+            }
+            docsActiveProjPill.textContent = foundName;
+          }
+        }
+      }
+
+      if (docsResetProjBtn) {
+        docsResetProjBtn.addEventListener('click', function () {
+          filterProjectSelect.value = '';
+          renderDocsProjectNav(cachedProjects);
+          loadDocuments();
         });
       }
 
@@ -5076,7 +5767,8 @@
 
               var fo = document.createElement('option');
               fo.value = p.slug;
-              fo.textContent = p.name + ' (' + p.doc_count + '篇/' + p.chunk_count + '段)';
+              var docCntTxt = typeof p.doc_count === 'number' ? (p.doc_count + '篇/') : '';
+              fo.textContent = p.name + ' (' + docCntTxt + (p.chunk_count || 0) + '段)';
               filterProjectSelect.appendChild(fo);
 
               var go = document.createElement('option');
@@ -5095,6 +5787,7 @@
             }
             filterProjectSelect.value = prevFilter;
             gapsFilterProject.value = prevGapProj;
+            renderDocsProjectNav(list);
           })
           .catch(function (err) {
             showGovMsg(docsMsg, 'is-err', '加载项目列表失败：' + err.message);
@@ -5104,6 +5797,25 @@
       loadChunkCount();
       loadProjects();
       loadMaterialsForSidebar();
+
+      function updateDocsKPIs(docs) {
+        var total = docs.length;
+        var activeCnt = 0;
+        var depCnt = 0;
+        var chunkCnt = 0;
+        for (var i = 0; i < docs.length; i++) {
+          if (docs[i].status === 'deprecated' || docs[i].doc_status === 'deprecated') {
+            depCnt++;
+          } else {
+            activeCnt++;
+          }
+          chunkCnt += Number(docs[i].chunk_count || 0);
+        }
+        if (kpiDocsTotal) kpiDocsTotal.textContent = String(total);
+        if (kpiDocsActive) kpiDocsActive.textContent = String(activeCnt);
+        if (kpiDocsDeprecated) kpiDocsDeprecated.textContent = String(depCnt);
+        if (kpiDocsChunks) kpiDocsChunks.textContent = String(chunkCnt);
+      }
 
       function loadDocuments() {
         var qs = [];
@@ -5118,6 +5830,9 @@
           .then(readJSONResponse)
           .then(function (data) {
             var docs = (data && Array.isArray(data.documents)) ? data.documents : [];
+            cachedGovernanceDocs = docs;
+            updateDocsKPIs(docs);
+            renderDocsProjectNav(cachedProjects);
             renderDocuments(docs);
           })
           .catch(function (err) {
@@ -5125,23 +5840,176 @@
           });
       }
 
-      function renderDocuments(docs) {
+      function openDocsPanePreview(docId) {
+        selectedGovDocId = docId;
+        setRightSidebarOpen(true);
+        syncAllWorkspacesSidebarState();
+        setDocsRightMode('preview');
+
+        var rows = docsList.querySelectorAll('.doc-row');
+        for (var i = 0; i < rows.length; i++) {
+          rows[i].classList.toggle('is-selected', Number(rows[i].getAttribute('data-doc-id')) === Number(docId));
+        }
+
+        docsPreviewEmpty.hidden = true;
+        docsPreviewBox.hidden = false;
+        docsPreviewBox.textContent = '';
+
+        var loadingEl = document.createElement('div');
+        loadingEl.className = 'status-box loading-box';
+        loadingEl.textContent = '正在加载文档切片预览…';
+        docsPreviewBox.appendChild(loadingEl);
+
+        fetch('/api/documents/' + encodeURIComponent(docId), { method: 'GET' })
+          .then(readJSONResponse)
+          .then(function (data) {
+            docsPreviewBox.textContent = '';
+            var doc = (data && data.document) ? data.document : data;
+            var chunks = (data && Array.isArray(data.chunks)) ? data.chunks : (doc && Array.isArray(doc.chunks) ? doc.chunks : []);
+
+            var headCard = document.createElement('div');
+            headCard.className = 'inspector-card';
+
+            var titleEl = document.createElement('h3');
+            titleEl.className = 'inspector-title';
+            titleEl.textContent = (doc && (doc.title || doc.filename)) || ('文档 #' + docId);
+            headCard.appendChild(titleEl);
+
+            var badgeRow = document.createElement('div');
+            badgeRow.className = 'radar-badges';
+
+            var st = (doc && (doc.status || doc.doc_status)) || 'active';
+            var stBadge = document.createElement('span');
+            stBadge.className = 'doc-badge ' + (st === 'deprecated' ? 'is-deprecated' : 'is-active');
+            stBadge.textContent = st === 'deprecated' ? '已废弃 deprecated' : '生效中 active';
+            badgeRow.appendChild(stBadge);
+
+            if (doc && (doc.project_name || doc.project_slug)) {
+              var pBadge = document.createElement('span');
+              pBadge.className = 'doc-badge is-fmt';
+              pBadge.textContent = doc.project_name || doc.project_slug;
+              badgeRow.appendChild(pBadge);
+            }
+
+            var lvlBadge = document.createElement('span');
+            lvlBadge.className = 'doc-badge';
+            lvlBadge.textContent = (doc && doc.doc_level) || 'spec';
+            badgeRow.appendChild(lvlBadge);
+
+            var cntBadge = document.createElement('span');
+            cntBadge.className = 'doc-badge';
+            cntBadge.textContent = '共 ' + chunks.length + ' 段切片';
+            badgeRow.appendChild(cntBadge);
+
+            headCard.appendChild(badgeRow);
+
+            var actRow = document.createElement('div');
+            actRow.className = 'doc-Preview-actions';
+            actRow.style.display = 'flex';
+            actRow.style.gap = '6px';
+
+            var askThisBtn = document.createElement('button');
+            askThisBtn.type = 'button';
+            askThisBtn.className = 'btn-primary-sm';
+            askThisBtn.textContent = '仅针对此材料去问答提问';
+            askThisBtn.addEventListener('click', function () {
+              switchTab('ask');
+              selectedDocumentIDs = [Number(docId)];
+              setScopeMode('material');
+              openDocumentPreview(Number(docId));
+            });
+            actRow.appendChild(askThisBtn);
+
+            headCard.appendChild(actRow);
+            docsPreviewBox.appendChild(headCard);
+
+            if (chunks.length === 0) {
+              var noChunk = document.createElement('div');
+              noChunk.className = 'empty-hint';
+              noChunk.textContent = '该文档暂无切片内容。';
+              docsPreviewBox.appendChild(noChunk);
+              return;
+            }
+
+            var chunkWrap = document.createElement('div');
+            chunkWrap.className = 'doc-preview-chunks';
+            for (var c = 0; c < chunks.length; c++) {
+              var ch = chunks[c];
+              var cCard = document.createElement('div');
+              cCard.className = 'inspector-card';
+
+              var cHead = document.createElement('div');
+              cHead.className = 'radar-badges';
+              var cNum = document.createElement('span');
+              cNum.className = 'doc-badge is-fmt';
+              cNum.textContent = '切片 #' + (c + 1) + (ch.id ? (' (ID:' + ch.id + ')') : '');
+              cHead.appendChild(cNum);
+
+              if (ch.heading || ch.heading_path) {
+                var cTitle = document.createElement('span');
+                cTitle.style.fontSize = '12.2px';
+                cTitle.style.fontWeight = '600';
+                cTitle.textContent = ch.heading || ch.heading_path;
+                cHead.appendChild(cTitle);
+              }
+              cCard.appendChild(cHead);
+
+              var cBody = document.createElement('div');
+              cBody.className = 'inspector-quote-box';
+              cBody.textContent = ch.content || '';
+              cCard.appendChild(cBody);
+
+              chunkWrap.appendChild(cCard);
+            }
+            docsPreviewBox.appendChild(chunkWrap);
+          })
+          .catch(function (err) {
+            docsPreviewBox.textContent = '';
+            var errBox = document.createElement('div');
+            errBox.className = 'gov-msg is-err';
+            errBox.textContent = '加载文档切片失败：' + (err && err.message ? err.message : '请求失败');
+            docsPreviewBox.appendChild(errBox);
+          });
+      }
+
+      function renderDocuments(allDocs) {
+        var docs = Array.isArray(allDocs) ? allDocs : cachedGovernanceDocs;
+        var kw = (docsSearchInput && docsSearchInput.value ? docsSearchInput.value : '').trim().toLowerCase();
+        var lvlFilter = filterLevelSelect ? filterLevelSelect.value : '';
+
+        var filtered = docs.filter(function (doc) {
+          if (lvlFilter && (doc.doc_level || 'spec') !== lvlFilter) {
+            return false;
+          }
+          if (!kw) return true;
+          var hay = ((doc.title || '') + ' ' + (doc.filename || '') + ' ' + (doc.project_name || '') + ' ' + (doc.project_slug || '') + ' ' + (doc.owner || '')).toLowerCase();
+          return hay.indexOf(kw) >= 0;
+        });
+
+        if (docsCountBadge) {
+          docsCountBadge.textContent = '共 ' + filtered.length + ' 篇';
+        }
+
         docsList.textContent = '';
-        if (!docs.length) {
+        if (!filtered.length) {
           var empty = document.createElement('div');
           empty.className = 'empty-hint';
-          empty.textContent = '当前筛选条件下暂无文档，可在上方上传新文档。';
+          empty.textContent = '当前筛选条件下暂无文档，可点击右上角「+ 热入库」或在右侧抽屉上传新文档。';
           docsList.appendChild(empty);
           return;
         }
 
-        for (var i = 0; i < docs.length; i++) {
+        for (var i = 0; i < filtered.length; i++) {
           (function (doc) {
+            var docSt = doc.status || doc.doc_status || 'active';
+            var isDep = docSt === 'deprecated';
             var row = document.createElement('div');
-            row.className = 'doc-row' + (doc.status === 'deprecated' ? ' is-deprecated' : '');
+            row.className = 'doc-row' + (isDep ? ' is-deprecated' : '') + (Number(selectedGovDocId) === Number(doc.id) ? ' is-selected' : '');
+            row.setAttribute('data-doc-id', String(doc.id));
 
-            var main = document.createElement('div');
-            main.className = 'doc-main';
+            // 列 1：文档标题 / 文件名
+            var colTitle = document.createElement('div');
+            colTitle.className = 'doc-cell-title';
 
             var titleLine = document.createElement('div');
             titleLine.className = 'doc-title-line';
@@ -5152,51 +6020,72 @@
             titleLine.appendChild(fmtBadge);
 
             var titleSpan = document.createElement('span');
+            titleSpan.className = 'doc-title-text';
             titleSpan.textContent = doc.title || doc.filename;
             titleLine.appendChild(titleSpan);
+            colTitle.appendChild(titleLine);
 
-            var statusBadge = document.createElement('span');
-            statusBadge.className = 'doc-badge ' + (doc.status === 'deprecated' ? 'is-deprecated' : 'is-active');
-            statusBadge.textContent = doc.status === 'deprecated' ? '已废弃 deprecated' : '生效中 active';
-            titleLine.appendChild(statusBadge);
+            var subFile = document.createElement('div');
+            subFile.className = 'doc-sub-filename';
+            var subParts = [doc.filename || ('ID #' + doc.id), '负责人：' + (doc.owner || '未填')];
+            if (doc.updated_at) {
+              subParts.push(String(doc.updated_at).slice(0, 10));
+            }
+            if (doc.replaced_by_doc_id) {
+              subParts.push('替代 #' + doc.replaced_by_doc_id);
+            }
+            subFile.textContent = subParts.join(' · ');
+            colTitle.appendChild(subFile);
+            row.appendChild(colTitle);
 
+            // 列 2：所属项目 + 层级
+            var colProj = document.createElement('div');
+            colProj.className = 'doc-cell-meta';
+            var projSpan = document.createElement('span');
+            projSpan.className = 'doc-cell-text';
+            projSpan.textContent = doc.project_name || doc.project_slug || '-';
+            colProj.appendChild(projSpan);
             var levelBadge = document.createElement('span');
             levelBadge.className = 'doc-badge';
             levelBadge.textContent = doc.doc_level || 'spec';
-            titleLine.appendChild(levelBadge);
+            colProj.appendChild(levelBadge);
+            row.appendChild(colProj);
 
-            main.appendChild(titleLine);
+            // 列 3：状态
+            var colStatus = document.createElement('div');
+            var statusBadge = document.createElement('span');
+            statusBadge.className = 'doc-badge ' + (isDep ? 'is-deprecated' : 'is-active');
+            statusBadge.textContent = isDep ? '已废弃' : '生效中';
+            colStatus.appendChild(statusBadge);
+            row.appendChild(colStatus);
 
-            var metaLine = document.createElement('div');
-            metaLine.className = 'doc-meta-line';
-            var metaParts = [
-              '项目：' + (doc.project_name || doc.project_slug),
-              '文件：' + doc.filename,
-              '切片：' + doc.chunk_count + ' 段',
-              '负责人：' + (doc.owner || '未填')
-            ];
-            if (doc.replaced_by_doc_id) {
-              metaParts.push('替代文档ID：#' + doc.replaced_by_doc_id);
-            }
-            if (doc.updated_at) {
-              metaParts.push('更新：' + String(doc.updated_at).slice(0, 19).replace('T', ' '));
-            }
-            for (var m = 0; m < metaParts.length; m++) {
-              var ms = document.createElement('span');
-              ms.textContent = metaParts[m];
-              metaLine.appendChild(ms);
-            }
-            main.appendChild(metaLine);
-            row.appendChild(main);
+            // 列 4：切片数
+            var colChunks = document.createElement('div');
+            colChunks.className = 'doc-cell-text';
+            colChunks.textContent = (doc.chunk_count || 0) + ' 段';
+            row.appendChild(colChunks);
 
+            // 列 5：操作
             var ops = document.createElement('div');
             ops.className = 'doc-ops';
+
+            var previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.className = 'btn-ghost-sm';
+            previewBtn.textContent = '预览';
+            previewBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              openDocsPanePreview(doc.id);
+            });
+            ops.appendChild(previewBtn);
 
             var askDocBtn = document.createElement('button');
             askDocBtn.type = 'button';
             askDocBtn.className = 'btn-ghost-sm';
-            askDocBtn.textContent = '在问答中查看';
-            askDocBtn.addEventListener('click', function () {
+            askDocBtn.textContent = '问答';
+            askDocBtn.title = '在智能问答中针对该材料查看与提问';
+            askDocBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
               switchTab('ask');
               selectedDocumentIDs = [doc.id];
               setScopeMode('material');
@@ -5204,18 +6093,22 @@
             });
             ops.appendChild(askDocBtn);
 
-            if (doc.status === 'deprecated') {
+            if (isDep) {
               var repSelect = document.createElement('select');
-              repSelect.className = 'gov-select';
-              repSelect.style.width = 'auto';
+              repSelect.className = 'gov-toolbar-select';
+              repSelect.style.maxWidth = '135px';
               repSelect.setAttribute('aria-label', '指定替代文档');
+              repSelect.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+              });
               var noneOpt = document.createElement('option');
               noneOpt.value = '';
               noneOpt.textContent = '替代文档：未指定';
               repSelect.appendChild(noneOpt);
               for (var k = 0; k < docs.length; k++) {
                 var candDoc = docs[k];
-                if (candDoc.id === doc.id || candDoc.status === 'deprecated') continue;
+                var candSt = candDoc.status || candDoc.doc_status || 'active';
+                if (candDoc.id === doc.id || candSt === 'deprecated') continue;
                 var opt = document.createElement('option');
                 opt.value = String(candDoc.id);
                 opt.textContent = '替换为：' + (candDoc.title || candDoc.filename) + ' (#' + candDoc.id + ')';
@@ -5243,12 +6136,13 @@
               ops.appendChild(repSelect);
             }
 
-            var nextStatus = doc.status === 'deprecated' ? 'active' : 'deprecated';
+            var nextStatus = isDep ? 'active' : 'deprecated';
             var toggleBtn = document.createElement('button');
             toggleBtn.type = 'button';
             toggleBtn.className = 'btn-ghost-sm';
-            toggleBtn.textContent = doc.status === 'deprecated' ? '恢复生效' : '设为废弃';
-            toggleBtn.addEventListener('click', function () {
+            toggleBtn.textContent = isDep ? '恢复生效' : '设为废弃';
+            toggleBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
               toggleBtn.disabled = true;
               fetch('/api/documents/' + doc.id, {
                 method: 'PATCH',
@@ -5271,7 +6165,8 @@
             delBtn.type = 'button';
             delBtn.className = 'btn-danger-sm';
             delBtn.textContent = '删除';
-            delBtn.addEventListener('click', function () {
+            delBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
               if (!window.confirm('确认删除文档《' + (doc.title || doc.filename) + '》及其 ' + doc.chunk_count + ' 条切片？')) {
                 return;
               }
@@ -5297,9 +6192,23 @@
             ops.appendChild(delBtn);
 
             row.appendChild(ops);
+            row.addEventListener('click', function () {
+              openDocsPanePreview(doc.id);
+            });
             docsList.appendChild(row);
-          })(docs[i]);
+          })(filtered[i]);
         }
+      }
+
+      if (docsSearchInput) {
+        docsSearchInput.addEventListener('input', function () {
+          renderDocuments(cachedGovernanceDocs);
+        });
+      }
+      if (filterLevelSelect) {
+        filterLevelSelect.addEventListener('change', function () {
+          renderDocuments(cachedGovernanceDocs);
+        });
       }
 
       projectForm.addEventListener('submit', function (e) {
@@ -5321,7 +6230,7 @@
           .then(readJSONResponse)
           .then(function (created) {
             projSubmitBtn.disabled = false;
-            projForm.reset();
+            projectForm.reset();
             showGovMsg(projMsg, 'is-ok', '项目空间创建成功：' + created.name + ' (' + created.slug + ')');
             loadProjects().then(function () {
               uploadProjectSelect.value = created.slug;
@@ -5504,13 +6413,16 @@
         nextGovFile();
       });
 
-      filterProjectSelect.addEventListener('change', loadDocuments);
+      filterProjectSelect.addEventListener('change', function () {
+        renderDocsProjectNav(cachedProjects);
+        loadDocuments();
+      });
       filterStatusSelect.addEventListener('change', loadDocuments);
       docsRefreshBtn.addEventListener('click', function () {
         loadProjects().then(loadDocuments);
       });
 
-      // ---- 阶段 12：知识盲区雷达与反馈转正 ----
+      // ---- 阶段 12：知识盲区雷达与反馈转正（方案 A：Plane Triage + shadcn Mail 三栏分拣工作台） ----
       function formatRefuseReasonLabel(reason) {
         if (reason === 'threshold') return '阈值未达标';
         if (reason === 'model_refusal') return '模型判定无依据';
@@ -5523,6 +6435,481 @@
         if (st === 'resolved') return '已解决 resolved';
         if (st === 'ignored') return '已忽略 ignored';
         return st || '';
+      }
+
+      function setRadarView(view) {
+        currentRadarView = view || 'all';
+        if (radarGapsBlock) radarGapsBlock.hidden = currentRadarView === 'feedback';
+        if (radarFbBlock) radarFbBlock.hidden = currentRadarView === 'gaps';
+        if (radarViewNav) {
+          var btns = radarViewNav.querySelectorAll('[data-radar-view]');
+          for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle('is-active', btns[i].getAttribute('data-radar-view') === currentRadarView);
+          }
+        }
+        if (radarActiveViewPill) {
+          if (currentRadarView === 'gaps') {
+            radarActiveViewPill.textContent = '分拣视图：团队知识盲区雷达';
+          } else if (currentRadarView === 'feedback') {
+            radarActiveViewPill.textContent = '分拣视图：用户反馈与活评测转正';
+          } else {
+            radarActiveViewPill.textContent = '分拣视图：全部队列（盲区 + 反馈）';
+          }
+        }
+      }
+
+      if (radarViewNav) {
+        var viewBtns = radarViewNav.querySelectorAll('[data-radar-view]');
+        for (var vb = 0; vb < viewBtns.length; vb++) {
+          viewBtns[vb].addEventListener('click', function () {
+            setRadarView(this.getAttribute('data-radar-view'));
+          });
+        }
+      }
+
+      if (radarRefreshAllBtn) {
+        radarRefreshAllBtn.addEventListener('click', function () {
+          loadGaps();
+          loadFeedback();
+        });
+      }
+
+      function updateRadarKPIs() {
+        var openCnt = 0;
+        var resCnt = 0;
+        for (var i = 0; i < cachedGapsList.length; i++) {
+          if (cachedGapsList[i].status === 'resolved') resCnt++;
+          else if (cachedGapsList[i].status === 'open') openCnt++;
+        }
+        var pendCnt = 0;
+        var promCnt = 0;
+        for (var j = 0; j < cachedFeedbackList.length; j++) {
+          if (cachedFeedbackList[j].promoted_question_id) promCnt++;
+          else pendCnt++;
+        }
+        if (kpiGapsOpen) kpiGapsOpen.textContent = String(openCnt);
+        if (kpiGapsResolved) kpiGapsResolved.textContent = String(resCnt);
+        if (kpiFbPending) kpiFbPending.textContent = String(pendCnt);
+        if (kpiFbPromoted) kpiFbPromoted.textContent = String(promCnt);
+        if (navRadarGapsCount) navRadarGapsCount.textContent = cachedGapsList.length + ' 条';
+        if (navRadarFbCount) navRadarFbCount.textContent = cachedFeedbackList.length + ' 条';
+        if (navRadarAllCount) navRadarAllCount.textContent = (cachedGapsList.length + cachedFeedbackList.length) + ' 条';
+      }
+
+      function syncRadarRowSelection() {
+        var gapRows = gapsList.querySelectorAll('.radar-item');
+        for (var i = 0; i < gapRows.length; i++) {
+          var isSelGap = Boolean(selectedRadarItem && selectedRadarItem.kind === 'gap' && Number(gapRows[i].getAttribute('data-gap-id')) === Number(selectedRadarItem.id));
+          gapRows[i].classList.toggle('is-selected', isSelGap);
+        }
+        var fbRows = fbList.querySelectorAll('.radar-item');
+        for (var j = 0; j < fbRows.length; j++) {
+          var isSelFb = Boolean(selectedRadarItem && selectedRadarItem.kind === 'feedback' && Number(fbRows[j].getAttribute('data-fb-id')) === Number(selectedRadarItem.id));
+          fbRows[j].classList.toggle('is-selected', isSelFb);
+        }
+      }
+
+      function inspectGapInRightPane(gap) {
+        if (!gap) return;
+        selectedRadarItem = { kind: 'gap', id: gap.id };
+        syncRadarRowSelection();
+        setRightSidebarOpen(true);
+        syncAllWorkspacesSidebarState();
+
+        if (radarInspectorBadge) {
+          radarInspectorBadge.className = 'doc-badge is-warn';
+          radarInspectorBadge.textContent = '知识盲区 #' + gap.id;
+        }
+        radarInspectorEmpty.hidden = true;
+        radarInspectorContent.hidden = false;
+        radarInspectorContent.textContent = '';
+
+        var card = document.createElement('div');
+        card.className = 'inspector-card';
+
+        var qTitle = document.createElement('h3');
+        qTitle.className = 'inspector-title';
+        qTitle.textContent = gap.question;
+        card.appendChild(qTitle);
+
+        var badges = document.createElement('div');
+        badges.className = 'radar-badges';
+
+        var hitB = document.createElement('span');
+        hitB.className = 'doc-badge is-fmt';
+        hitB.textContent = '提问 ' + gap.hit_count + ' 次';
+        badges.appendChild(hitB);
+
+        var stB = document.createElement('span');
+        stB.className = 'doc-badge ' + (gap.status === 'resolved' ? 'is-active' : (gap.status === 'open' ? 'is-deprecated' : ''));
+        stB.textContent = formatGapStatusLabel(gap.status);
+        badges.appendChild(stB);
+
+        var rsB = document.createElement('span');
+        rsB.className = 'doc-badge is-warn';
+        rsB.textContent = formatRefuseReasonLabel(gap.refuse_reason);
+        badges.appendChild(rsB);
+
+        card.appendChild(badges);
+
+        var kv = document.createElement('div');
+        kv.className = 'inspector-kv-list';
+
+        var scoreTxt = typeof gap.top1_final === 'number' ? gap.top1_final.toFixed(3) : '0.000';
+        var rows = [
+          ['项目域路由', gap.project_slug || 'auto'],
+          ['Top1 融合得分', scoreTxt],
+          ['最近近似文档', gap.nearest_doc_title || gap.nearest_doc_filename || '暂无高相关文档'],
+          ['近似段落章节', gap.nearest_heading || '未定位章节'],
+          ['文档负责人', gap.nearest_doc_owner || '未指定'],
+          ['最近触发时间', gap.last_asked_at ? String(gap.last_asked_at).slice(0, 19).replace('T', ' ') : '-']
+        ];
+        for (var r = 0; r < rows.length; r++) {
+          var rowEl = document.createElement('div');
+          rowEl.className = 'inspector-kv-row';
+          var kEl = document.createElement('span');
+          kEl.className = 'inspector-kv-key';
+          kEl.textContent = rows[r][0];
+          var vEl = document.createElement('span');
+          vEl.className = 'inspector-kv-val';
+          vEl.textContent = rows[r][1];
+          rowEl.appendChild(kEl);
+          rowEl.appendChild(vEl);
+          kv.appendChild(rowEl);
+        }
+        card.appendChild(kv);
+
+        var actions = document.createElement('div');
+        actions.className = 'radar-ops';
+        actions.style.marginTop = '4px';
+
+        var goUploadBtn = document.createElement('button');
+        goUploadBtn.type = 'button';
+        goUploadBtn.className = 'btn-primary-sm';
+        goUploadBtn.textContent = '去补充文档';
+        goUploadBtn.addEventListener('click', function () {
+          var targetProj = gap.nearest_project_slug || (gap.project_slug && gap.project_slug !== 'auto' ? gap.project_slug : '');
+          switchTab('docs');
+          setTimeout(function () {
+            setRightSidebarOpen(true);
+            syncAllWorkspacesSidebarState();
+            setDocsRightMode('upload');
+            if (targetProj) {
+              uploadProjectSelect.value = targetProj;
+            }
+            uploadFileInput.focus();
+          }, 60);
+        });
+        actions.appendChild(goUploadBtn);
+
+        var replayBtn = document.createElement('button');
+        replayBtn.type = 'button';
+        replayBtn.className = 'btn-ghost-sm';
+        replayBtn.textContent = '在问答中重放';
+        replayBtn.addEventListener('click', function () {
+          switchTab('ask');
+          questionInput.value = gap.question || '';
+          syncQuestionInputHeight();
+          submitQuestion(false);
+        });
+        actions.appendChild(replayBtn);
+
+        if (gap.status !== 'resolved') {
+          var resBtn = document.createElement('button');
+          resBtn.type = 'button';
+          resBtn.className = 'btn-ghost-sm';
+          resBtn.textContent = '标记已解决';
+          resBtn.addEventListener('click', function () {
+            updateGapStatus(gap.id, 'resolved', resBtn);
+          });
+          actions.appendChild(resBtn);
+        }
+
+        if (gap.status !== 'ignored') {
+          var ignBtn = document.createElement('button');
+          ignBtn.type = 'button';
+          ignBtn.className = 'btn-ghost-sm';
+          ignBtn.textContent = '忽略';
+          ignBtn.addEventListener('click', function () {
+            updateGapStatus(gap.id, 'ignored', ignBtn);
+          });
+          actions.appendChild(ignBtn);
+        }
+
+        card.appendChild(actions);
+        radarInspectorContent.appendChild(card);
+      }
+
+      function buildPromoteFormEl(fb) {
+        var promotePanel = document.createElement('form');
+        promotePanel.className = 'promote-box';
+
+        var pHead = document.createElement('div');
+        pHead.className = 'side-section-head';
+        var pTitle = document.createElement('h4');
+        pTitle.className = 'side-section-title';
+        pTitle.textContent = '转正为活评测题（question_set=feedback）';
+        pHead.appendChild(pTitle);
+        promotePanel.appendChild(pHead);
+
+        var refuseLabel = document.createElement('label');
+        refuseLabel.className = 'gov-checkbox';
+        var refuseChk = document.createElement('input');
+        refuseChk.type = 'checkbox';
+        refuseChk.checked = Boolean(fb.refused);
+        var refuseTxt = document.createElement('span');
+        refuseTxt.textContent = '应拒答题（should_refuse）';
+        refuseLabel.appendChild(refuseChk);
+        refuseLabel.appendChild(refuseTxt);
+        promotePanel.appendChild(refuseLabel);
+
+        var twoCol = document.createElement('div');
+        twoCol.className = 'gov-kpi-grid';
+
+        var catField = document.createElement('label');
+        catField.className = 'gov-field';
+        var catLab = document.createElement('span');
+        catLab.className = 'gov-label';
+        catLab.textContent = '分类标签（category）';
+        var catInput = document.createElement('input');
+        catInput.type = 'text';
+        catInput.className = 'gov-input';
+        catInput.value = 'feedback';
+        catField.appendChild(catLab);
+        catField.appendChild(catInput);
+        twoCol.appendChild(catField);
+
+        var chunkIDField = document.createElement('label');
+        chunkIDField.className = 'gov-field';
+        var cidLab = document.createElement('span');
+        cidLab.className = 'gov-label';
+        cidLab.textContent = '标准切片 gold_chunk_id';
+        var cidInput = document.createElement('input');
+        cidInput.type = 'number';
+        cidInput.min = '1';
+        cidInput.className = 'gov-input';
+        cidInput.placeholder = '非拒答题必填，如 42';
+        chunkIDField.appendChild(cidLab);
+        chunkIDField.appendChild(cidInput);
+        twoCol.appendChild(chunkIDField);
+
+        promotePanel.appendChild(twoCol);
+
+        var chunkSelectField = document.createElement('label');
+        chunkSelectField.className = 'gov-field';
+        var chunkLab = document.createElement('span');
+        chunkLab.className = 'gov-label';
+        chunkLab.textContent = '候选切片参考（选择自动填入 ID）';
+        var chunkSel = document.createElement('select');
+        chunkSel.className = 'gov-select';
+        var defOpt = document.createElement('option');
+        defOpt.value = '';
+        defOpt.textContent = '手动输入切片 ID 或下方选择';
+        chunkSel.appendChild(defOpt);
+        var cands = Array.isArray(fb.candidate_chunks) ? fb.candidate_chunks : [];
+        for (var c = 0; c < cands.length; c++) {
+          var cm = cands[c];
+          var opt = document.createElement('option');
+          opt.value = String(cm.id);
+          opt.textContent = '#' + cm.id + ' · ' + (cm.doc_title || cm.project_slug) + ' · ' + (cm.heading_path || '正文');
+          chunkSel.appendChild(opt);
+        }
+        if (cands.length > 0 && !refuseChk.checked) {
+          cidInput.value = String(cands[0].id);
+          chunkSel.value = String(cands[0].id);
+        }
+        chunkSelectField.appendChild(chunkLab);
+        chunkSelectField.appendChild(chunkSel);
+        promotePanel.appendChild(chunkSelectField);
+
+        var ansField = document.createElement('label');
+        ansField.className = 'gov-field';
+        var ansLab = document.createElement('span');
+        ansLab.className = 'gov-label';
+        ansLab.textContent = '标准参考答案（gold_answer）';
+        var ansInput = document.createElement('input');
+        ansInput.type = 'text';
+        ansInput.className = 'gov-input';
+        ansInput.placeholder = '输入人工确认的标准答案；若应拒答可留空默认“文档中没有依据”';
+        ansField.appendChild(ansLab);
+        ansField.appendChild(ansInput);
+        promotePanel.appendChild(ansField);
+
+        function syncRefuseUI() {
+          var isRef = refuseChk.checked;
+          chunkSel.disabled = isRef;
+          cidInput.disabled = isRef;
+          if (isRef) {
+            cidInput.value = '';
+            if (!ansInput.value.trim()) {
+              ansInput.value = REFUSE_TEXT;
+            }
+          } else if (ansInput.value.trim() === REFUSE_TEXT) {
+            ansInput.value = '';
+          }
+        }
+        syncRefuseUI();
+        refuseChk.addEventListener('change', syncRefuseUI);
+        chunkSel.addEventListener('change', function () {
+          if (chunkSel.value) cidInput.value = chunkSel.value;
+        });
+
+        var pActions = document.createElement('div');
+        pActions.className = 'promote-actions';
+        var confirmBtn = document.createElement('button');
+        confirmBtn.type = 'submit';
+        confirmBtn.className = 'btn-primary-sm';
+        confirmBtn.style.width = '100%';
+        confirmBtn.textContent = '确认转正入库';
+        pActions.appendChild(confirmBtn);
+        promotePanel.appendChild(pActions);
+
+        promotePanel.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var shouldRefuse = refuseChk.checked;
+          var goldAnswer = ansInput.value.trim();
+          var goldChunkID = null;
+          if (!shouldRefuse) {
+            var parsedID = Number(cidInput.value);
+            if (!Number.isInteger(parsedID) || parsedID <= 0) {
+              showGovMsg(fbMsg, 'is-err', '非拒答题必须提供有效的正整数 gold_chunk_id。');
+              return;
+            }
+            goldChunkID = parsedID;
+            if (!goldAnswer) {
+              showGovMsg(fbMsg, 'is-err', '非拒答题请填写标准参考答案 gold_answer。');
+              return;
+            }
+          }
+          confirmBtn.disabled = true;
+          fetch('/api/feedback/' + fb.id + '/promote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              gold_answer: goldAnswer,
+              should_refuse: shouldRefuse,
+              gold_chunk_id: goldChunkID,
+              category: catInput.value.trim() || 'feedback'
+            })
+          })
+            .then(readJSONResponse)
+            .then(function (res) {
+              showGovMsg(fbMsg, 'is-ok', '反馈 #' + fb.id + ' 已成功转正为活评测题 #' + res.promoted_question_id + '（question_set=feedback）');
+              loadFeedback();
+            })
+            .catch(function (err) {
+              confirmBtn.disabled = false;
+              showGovMsg(fbMsg, 'is-err', '转正失败：' + err.message);
+            });
+        });
+
+        return promotePanel;
+      }
+
+      function inspectFeedbackInRightPane(fb) {
+        if (!fb) return;
+        selectedRadarItem = { kind: 'feedback', id: fb.id };
+        syncRadarRowSelection();
+        setRightSidebarOpen(true);
+        syncAllWorkspacesSidebarState();
+
+        if (radarInspectorBadge) {
+          radarInspectorBadge.className = 'doc-badge ' + (fb.vote === 'down' ? 'is-deprecated' : 'is-active');
+          radarInspectorBadge.textContent = '用户反馈 #' + fb.id;
+        }
+        radarInspectorEmpty.hidden = true;
+        radarInspectorContent.hidden = false;
+        radarInspectorContent.textContent = '';
+
+        var card = document.createElement('div');
+        card.className = 'inspector-card';
+
+        var qTitle = document.createElement('h3');
+        qTitle.className = 'inspector-title';
+        qTitle.textContent = fb.question;
+        card.appendChild(qTitle);
+
+        var badges = document.createElement('div');
+        badges.className = 'radar-badges';
+
+        var voteB = document.createElement('span');
+        voteB.className = 'doc-badge ' + (fb.vote === 'down' ? 'is-deprecated' : 'is-active');
+        voteB.textContent = fb.vote === 'down' ? '👎 有问题/漏答' : '👍 准确';
+        badges.appendChild(voteB);
+
+        var projB = document.createElement('span');
+        projB.className = 'doc-badge';
+        projB.textContent = '项目域：' + (fb.project_slug || 'auto');
+        badges.appendChild(projB);
+
+        if (fb.refused) {
+          var refB = document.createElement('span');
+          refB.className = 'doc-badge is-warn';
+          refB.textContent = '系统当时拒答';
+          badges.appendChild(refB);
+        }
+
+        var promoB = document.createElement('span');
+        promoB.className = 'doc-badge ' + (fb.promoted_question_id ? 'is-active' : 'is-fmt');
+        promoB.textContent = fb.promoted_question_id ? ('已转正题 #' + fb.promoted_question_id) : '待审阅转正';
+        badges.appendChild(promoB);
+
+        card.appendChild(badges);
+
+        if (fb.comment) {
+          var cLabel = document.createElement('span');
+          cLabel.className = 'gov-label';
+          cLabel.textContent = '用户反馈备注';
+          card.appendChild(cLabel);
+
+          var cBox = document.createElement('div');
+          cBox.className = 'inspector-quote-box';
+          cBox.textContent = fb.comment;
+          card.appendChild(cBox);
+        }
+
+        if (fb.answer) {
+          var aLabel = document.createElement('span');
+          aLabel.className = 'gov-label';
+          aLabel.textContent = '系统当时回答原文';
+          card.appendChild(aLabel);
+
+          var aBox = document.createElement('div');
+          aBox.className = 'inspector-quote-box';
+          aBox.textContent = fb.answer;
+          card.appendChild(aBox);
+        }
+
+        var kv = document.createElement('div');
+        kv.className = 'inspector-kv-list';
+        var chunkIDsStr = Array.isArray(fb.retrieved_chunk_ids) && fb.retrieved_chunk_ids.length > 0
+          ? ('[' + fb.retrieved_chunk_ids.join(', ') + ']')
+          : '无';
+        var timeStr = fb.created_at ? String(fb.created_at).slice(0, 19).replace('T', ' ') : '-';
+        var infoRows = [
+          ['检索命中切片 ID', chunkIDsStr],
+          ['反馈提交时间', timeStr]
+        ];
+        for (var ir = 0; ir < infoRows.length; ir++) {
+          var rEl = document.createElement('div');
+          rEl.className = 'inspector-kv-row';
+          var kSpan = document.createElement('span');
+          kSpan.className = 'inspector-kv-key';
+          kSpan.textContent = infoRows[ir][0];
+          var vSpan = document.createElement('span');
+          vSpan.className = 'inspector-kv-val';
+          vSpan.textContent = infoRows[ir][1];
+          rEl.appendChild(kSpan);
+          rEl.appendChild(vSpan);
+          kv.appendChild(rEl);
+        }
+        card.appendChild(kv);
+
+        radarInspectorContent.appendChild(card);
+
+        if (!fb.promoted_question_id) {
+          radarInspectorContent.appendChild(buildPromoteFormEl(fb));
+        }
       }
 
       function loadGaps() {
@@ -5538,6 +6925,8 @@
           .then(readJSONResponse)
           .then(function (data) {
             var gaps = (data && Array.isArray(data.gaps)) ? data.gaps : [];
+            cachedGapsList = gaps;
+            updateRadarKPIs();
             renderGaps(gaps);
           })
           .catch(function (err) {
@@ -5545,9 +6934,21 @@
           });
       }
 
-      function renderGaps(gaps) {
+      function renderGaps(allGaps) {
+        var gaps = Array.isArray(allGaps) ? allGaps : cachedGapsList;
+        var kw = (radarSearchInput && radarSearchInput.value ? radarSearchInput.value : '').trim().toLowerCase();
+        var filtered = gaps.filter(function (g) {
+          if (!kw) return true;
+          var hay = ((g.question || '') + ' ' + (g.project_slug || '') + ' ' + (g.nearest_doc_title || '') + ' ' + (g.nearest_doc_filename || '') + ' ' + (g.nearest_heading || '')).toLowerCase();
+          return hay.indexOf(kw) >= 0;
+        });
+
+        if (gapsCountBadge) {
+          gapsCountBadge.textContent = filtered.length + ' 条';
+        }
+
         gapsList.textContent = '';
-        if (!gaps.length) {
+        if (!filtered.length) {
           var empty = document.createElement('div');
           empty.className = 'empty-hint';
           empty.textContent = '当前筛选条件下暂无知识盲区记录，线上拒答会自动汇总至此。';
@@ -5555,10 +6956,12 @@
           return;
         }
 
-        for (var i = 0; i < gaps.length; i++) {
+        for (var i = 0; i < filtered.length; i++) {
           (function (gap) {
+            var isSelected = Boolean(selectedRadarItem && selectedRadarItem.kind === 'gap' && Number(selectedRadarItem.id) === Number(gap.id));
             var row = document.createElement('div');
-            row.className = 'radar-item';
+            row.className = 'radar-item' + (isSelected ? ' is-selected' : '');
+            row.setAttribute('data-gap-id', String(gap.id));
 
             var top = document.createElement('div');
             top.className = 'radar-top';
@@ -5566,10 +6969,18 @@
             var main = document.createElement('div');
             main.className = 'radar-main';
 
+            var titleRow = document.createElement('div');
+            titleRow.className = 'radar-title-row';
+
+            var dot = document.createElement('span');
+            dot.className = 'triage-dot ' + (gap.status === 'resolved' ? 'is-resolved' : (gap.status === 'open' ? 'is-open' : ''));
+            titleRow.appendChild(dot);
+
             var title = document.createElement('div');
             title.className = 'radar-title';
             title.textContent = gap.question;
-            main.appendChild(title);
+            titleRow.appendChild(title);
+            main.appendChild(titleRow);
 
             var badges = document.createElement('div');
             badges.className = 'radar-badges';
@@ -5604,14 +7015,17 @@
             goDocBtn.type = 'button';
             goDocBtn.className = 'btn-primary-sm';
             goDocBtn.textContent = '去补充文档';
-            goDocBtn.addEventListener('click', function () {
+            goDocBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
               var targetProj = gap.nearest_project_slug || (gap.project_slug && gap.project_slug !== 'auto' ? gap.project_slug : '');
               switchTab('docs');
               setTimeout(function () {
+                setRightSidebarOpen(true);
+                syncAllWorkspacesSidebarState();
+                setDocsRightMode('upload');
                 if (targetProj) {
                   uploadProjectSelect.value = targetProj;
                 }
-                uploadForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 uploadFileInput.focus();
               }, 80);
             });
@@ -5622,7 +7036,8 @@
               resolveBtn.type = 'button';
               resolveBtn.className = 'btn-ghost-sm';
               resolveBtn.textContent = '已解决';
-              resolveBtn.addEventListener('click', function () {
+              resolveBtn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
                 updateGapStatus(gap.id, 'resolved', resolveBtn);
               });
               ops.appendChild(resolveBtn);
@@ -5633,7 +7048,8 @@
               ignoreBtn.type = 'button';
               ignoreBtn.className = 'btn-ghost-sm';
               ignoreBtn.textContent = '忽略';
-              ignoreBtn.addEventListener('click', function () {
+              ignoreBtn.addEventListener('click', function (ev) {
+                ev.stopPropagation();
                 updateGapStatus(gap.id, 'ignored', ignoreBtn);
               });
               ops.appendChild(ignoreBtn);
@@ -5667,8 +7083,23 @@
             }
             row.appendChild(meta);
 
+            row.addEventListener('click', function () {
+              inspectGapInRightPane(gap);
+            });
+
             gapsList.appendChild(row);
-          })(gaps[i]);
+          })(filtered[i]);
+        }
+
+        if (selectedRadarItem && selectedRadarItem.kind === 'gap') {
+          for (var g = 0; g < filtered.length; g++) {
+            if (Number(filtered[g].id) === Number(selectedRadarItem.id)) {
+              inspectGapInRightPane(filtered[g]);
+              break;
+            }
+          }
+        } else if (!selectedRadarItem && filtered.length > 0) {
+          inspectGapInRightPane(filtered[0]);
         }
       }
 
@@ -5703,6 +7134,8 @@
           .then(readJSONResponse)
           .then(function (data) {
             var list = (data && Array.isArray(data.feedback)) ? data.feedback : [];
+            cachedFeedbackList = list;
+            updateRadarKPIs();
             renderFeedbackList(list);
           })
           .catch(function (err) {
@@ -5710,9 +7143,21 @@
           });
       }
 
-      function renderFeedbackList(list) {
+      function renderFeedbackList(allList) {
+        var list = Array.isArray(allList) ? allList : cachedFeedbackList;
+        var kw = (radarSearchInput && radarSearchInput.value ? radarSearchInput.value : '').trim().toLowerCase();
+        var filtered = list.filter(function (fb) {
+          if (!kw) return true;
+          var hay = ((fb.question || '') + ' ' + (fb.comment || '') + ' ' + (fb.answer || '') + ' ' + (fb.project_slug || '')).toLowerCase();
+          return hay.indexOf(kw) >= 0;
+        });
+
+        if (fbCountBadge) {
+          fbCountBadge.textContent = filtered.length + ' 条';
+        }
+
         fbList.textContent = '';
-        if (!list.length) {
+        if (!filtered.length) {
           var empty = document.createElement('div');
           empty.className = 'empty-hint';
           empty.textContent = '当前筛选条件下暂无用户反馈。';
@@ -5720,10 +7165,12 @@
           return;
         }
 
-        for (var i = 0; i < list.length; i++) {
+        for (var i = 0; i < filtered.length; i++) {
           (function (fb) {
+            var isSelected = Boolean(selectedRadarItem && selectedRadarItem.kind === 'feedback' && Number(selectedRadarItem.id) === Number(fb.id));
             var row = document.createElement('div');
-            row.className = 'radar-item';
+            row.className = 'radar-item' + (isSelected ? ' is-selected' : '');
+            row.setAttribute('data-fb-id', String(fb.id));
 
             var top = document.createElement('div');
             top.className = 'radar-top';
@@ -5731,10 +7178,18 @@
             var main = document.createElement('div');
             main.className = 'radar-main';
 
+            var titleRow = document.createElement('div');
+            titleRow.className = 'radar-title-row';
+
+            var dot = document.createElement('span');
+            dot.className = 'triage-dot ' + (fb.vote === 'down' ? 'is-down' : 'is-up');
+            titleRow.appendChild(dot);
+
             var title = document.createElement('div');
             title.className = 'radar-title';
             title.textContent = fb.question;
-            main.appendChild(title);
+            titleRow.appendChild(title);
+            main.appendChild(titleRow);
 
             var badges = document.createElement('div');
             badges.className = 'radar-badges';
@@ -5768,18 +7223,16 @@
 
             var ops = document.createElement('div');
             ops.className = 'radar-ops';
-            var promotePanel = null;
 
-            if (!fb.promoted_question_id) {
-              var openPromoteBtn = document.createElement('button');
-              openPromoteBtn.type = 'button';
-              openPromoteBtn.className = 'btn-primary-sm';
-              openPromoteBtn.textContent = '转正为评测题';
-              openPromoteBtn.addEventListener('click', function () {
-                if (promotePanel) promotePanel.hidden = !promotePanel.hidden;
-              });
-              ops.appendChild(openPromoteBtn);
-            }
+            var openPromoteBtn = document.createElement('button');
+            openPromoteBtn.type = 'button';
+            openPromoteBtn.className = fb.promoted_question_id ? 'btn-ghost-sm' : 'btn-primary-sm';
+            openPromoteBtn.textContent = fb.promoted_question_id ? '查看详情' : '转正为评测题';
+            openPromoteBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              inspectFeedbackInRightPane(fb);
+            });
+            ops.appendChild(openPromoteBtn);
 
             top.appendChild(ops);
             row.appendChild(top);
@@ -5792,8 +7245,8 @@
               meta.appendChild(cSpan);
             }
             if (fb.answer) {
-              var ansPreview = Array.from(fb.answer).slice(0, 120).join('');
-              if (Array.from(fb.answer).length > 120) ansPreview += '…';
+              var ansPreview = Array.from(fb.answer).slice(0, 86).join('');
+              if (Array.from(fb.answer).length > 86) ansPreview += '…';
               var aSpan = document.createElement('span');
               aSpan.textContent = '原回答：' + ansPreview;
               meta.appendChild(aSpan);
@@ -5810,175 +7263,31 @@
             }
             row.appendChild(meta);
 
-            if (!fb.promoted_question_id) {
-              promotePanel = document.createElement('form');
-              promotePanel.className = 'promote-box';
-              promotePanel.hidden = true;
-
-              var grid = document.createElement('div');
-              grid.className = 'gov-grid';
-
-              var refuseLabel = document.createElement('label');
-              refuseLabel.className = 'gov-checkbox';
-              var refuseChk = document.createElement('input');
-              refuseChk.type = 'checkbox';
-              refuseChk.checked = Boolean(fb.refused);
-              var refuseTxt = document.createElement('span');
-              refuseTxt.textContent = '应拒答题（should_refuse）';
-              refuseLabel.appendChild(refuseChk);
-              refuseLabel.appendChild(refuseTxt);
-              grid.appendChild(refuseLabel);
-
-              var catField = document.createElement('label');
-              catField.className = 'gov-field';
-              var catLab = document.createElement('span');
-              catLab.className = 'gov-label';
-              catLab.textContent = '分类标签（category）';
-              var catInput = document.createElement('input');
-              catInput.type = 'text';
-              catInput.className = 'gov-input';
-              catInput.value = 'feedback';
-              catField.appendChild(catLab);
-              catField.appendChild(catInput);
-              grid.appendChild(catField);
-
-              var chunkSelectField = document.createElement('label');
-              chunkSelectField.className = 'gov-field';
-              var chunkLab = document.createElement('span');
-              chunkLab.className = 'gov-label';
-              chunkLab.textContent = '候选切片参考（选择自动填入 ID）';
-              var chunkSel = document.createElement('select');
-              chunkSel.className = 'gov-select';
-              var defOpt = document.createElement('option');
-              defOpt.value = '';
-              defOpt.textContent = '手动输入切片 ID 或下方选择';
-              chunkSel.appendChild(defOpt);
-              var cands = Array.isArray(fb.candidate_chunks) ? fb.candidate_chunks : [];
-              for (var c = 0; c < cands.length; c++) {
-                var cm = cands[c];
-                var opt = document.createElement('option');
-                opt.value = String(cm.id);
-                opt.textContent = '#' + cm.id + ' · ' + (cm.doc_title || cm.project_slug) + ' · ' + (cm.heading_path || '正文');
-                chunkSel.appendChild(opt);
-              }
-              chunkSelectField.appendChild(chunkLab);
-              chunkSelectField.appendChild(chunkSel);
-              grid.appendChild(chunkSelectField);
-
-              var chunkIDField = document.createElement('label');
-              chunkIDField.className = 'gov-field';
-              var cidLab = document.createElement('span');
-              cidLab.className = 'gov-label';
-              cidLab.textContent = '标准切片 gold_chunk_id';
-              var cidInput = document.createElement('input');
-              cidInput.type = 'number';
-              cidInput.min = '1';
-              cidInput.className = 'gov-input';
-              cidInput.placeholder = '非拒答题必填，例如 42';
-              if (cands.length > 0 && !refuseChk.checked) {
-                cidInput.value = String(cands[0].id);
-                chunkSel.value = String(cands[0].id);
-              }
-              chunkIDField.appendChild(cidLab);
-              chunkIDField.appendChild(cidInput);
-              grid.appendChild(chunkIDField);
-
-              promotePanel.appendChild(grid);
-
-              var ansField = document.createElement('label');
-              ansField.className = 'gov-field';
-              var ansLab = document.createElement('span');
-              ansLab.className = 'gov-label';
-              ansLab.textContent = '标准参考答案（gold_answer）';
-              var ansInput = document.createElement('input');
-              ansInput.type = 'text';
-              ansInput.className = 'gov-input';
-              ansInput.placeholder = '输入人工确认的标准答案；若应拒答可留空默认“文档中没有依据”';
-              ansField.appendChild(ansLab);
-              ansField.appendChild(ansInput);
-              promotePanel.appendChild(ansField);
-
-              function syncRefuseUI() {
-                var isRef = refuseChk.checked;
-                chunkSel.disabled = isRef;
-                cidInput.disabled = isRef;
-                if (isRef) {
-                  cidInput.value = '';
-                  if (!ansInput.value.trim()) {
-                    ansInput.value = REFUSE_TEXT;
-                  }
-                } else if (ansInput.value.trim() === REFUSE_TEXT) {
-                  ansInput.value = '';
-                }
-              }
-              syncRefuseUI();
-              refuseChk.addEventListener('change', syncRefuseUI);
-              chunkSel.addEventListener('change', function () {
-                if (chunkSel.value) cidInput.value = chunkSel.value;
-              });
-
-              var pActions = document.createElement('div');
-              pActions.className = 'promote-actions';
-              var cancelBtn = document.createElement('button');
-              cancelBtn.type = 'button';
-              cancelBtn.className = 'btn-ghost-sm';
-              cancelBtn.textContent = '收起';
-              cancelBtn.addEventListener('click', function () {
-                promotePanel.hidden = true;
-              });
-              var confirmBtn = document.createElement('button');
-              confirmBtn.type = 'submit';
-              confirmBtn.className = 'btn-primary-sm';
-              confirmBtn.textContent = '确认转正入库';
-              pActions.appendChild(cancelBtn);
-              pActions.appendChild(confirmBtn);
-              promotePanel.appendChild(pActions);
-
-              promotePanel.addEventListener('submit', function (e) {
-                e.preventDefault();
-                var shouldRefuse = refuseChk.checked;
-                var goldAnswer = ansInput.value.trim();
-                var goldChunkID = null;
-                if (!shouldRefuse) {
-                  var parsedID = Number(cidInput.value);
-                  if (!Number.isInteger(parsedID) || parsedID <= 0) {
-                    showGovMsg(fbMsg, 'is-err', '非拒答题必须提供有效的正整数 gold_chunk_id。');
-                    return;
-                  }
-                  goldChunkID = parsedID;
-                  if (!goldAnswer) {
-                    showGovMsg(fbMsg, 'is-err', '非拒答题请填写标准参考答案 gold_answer。');
-                    return;
-                  }
-                }
-                confirmBtn.disabled = true;
-                fetch('/api/feedback/' + fb.id + '/promote', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    gold_answer: goldAnswer,
-                    should_refuse: shouldRefuse,
-                    gold_chunk_id: goldChunkID,
-                    category: catInput.value.trim() || 'feedback'
-                  })
-                })
-                  .then(readJSONResponse)
-                  .then(function (res) {
-                    showGovMsg(fbMsg, 'is-ok', '反馈 #' + fb.id + ' 已成功转正为活评测题 #' + res.promoted_question_id + '（question_set=feedback）');
-                    loadFeedback();
-                  })
-                  .catch(function (err) {
-                    confirmBtn.disabled = false;
-                    showGovMsg(fbMsg, 'is-err', '转正失败：' + err.message);
-                  });
-              });
-
-              row.appendChild(promotePanel);
-            }
+            row.addEventListener('click', function () {
+              inspectFeedbackInRightPane(fb);
+            });
 
             fbList.appendChild(row);
-          })(list[i]);
+          })(filtered[i]);
         }
+
+        if (selectedRadarItem && selectedRadarItem.kind === 'feedback') {
+          for (var f = 0; f < filtered.length; f++) {
+            if (Number(filtered[f].id) === Number(selectedRadarItem.id)) {
+              inspectFeedbackInRightPane(filtered[f]);
+              break;
+            }
+          }
+        } else if (!selectedRadarItem && cachedGapsList.length === 0 && filtered.length > 0) {
+          inspectFeedbackInRightPane(filtered[0]);
+        }
+      }
+
+      if (radarSearchInput) {
+        radarSearchInput.addEventListener('input', function () {
+          renderGaps(cachedGapsList);
+          renderFeedbackList(cachedFeedbackList);
+        });
       }
 
       gapsFilterProject.addEventListener('change', loadGaps);
