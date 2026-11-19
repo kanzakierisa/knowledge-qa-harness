@@ -2,18 +2,23 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"unsafe"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/xuri/excelize/v2"
@@ -35,6 +40,8 @@ func TestDocumentsHTTPInputValidation(t *testing.T) {
 		{http.MethodPost, "/api/projects", `{}`, "application/json"},
 		{http.MethodPost, "/api/documents/upload", `{"filename":"a.md"}`, "application/json"},
 		{http.MethodPost, "/api/documents/upload", `{"filename":"a.md","content":"hello","doc_level":"bad"}`, "application/json"},
+		{http.MethodGet, "/api/documents/abc", ``, ""},
+		{http.MethodGet, "/api/documents/0", ``, ""},
 		{http.MethodPatch, "/api/documents/abc", `{"status":"deprecated"}`, "application/json"},
 		{http.MethodPatch, "/api/documents/0", `{"status":"deprecated"}`, "application/json"},
 		{http.MethodDelete, "/api/documents/abc", ``, ""},
@@ -302,6 +309,17 @@ func TestV2DocumentsLifecycleHTTPMySQL(t *testing.T) {
 		t.Fatalf("list documents filter mismatch: %+v", listBody)
 	}
 
+	detailResp, err := http.Get(fmt.Sprintf("%s/api/documents/%d", srv.URL, up1.DocumentID))
+	if err != nil || detailResp.StatusCode != http.StatusOK {
+		t.Fatalf("get document detail failed: resp=%v err=%v", detailResp, err)
+	}
+	var detailBody store.DocumentDetail
+	_ = json.NewDecoder(detailResp.Body).Decode(&detailBody)
+	detailResp.Body.Close()
+	if detailBody.ID != up1.DocumentID || detailBody.Content == "" || len(detailBody.Chunks) == 0 {
+		t.Fatalf("document detail mismatch: %+v", detailBody)
+	}
+
 	// 删除刚才创建的 rule.md，确保后续测试只有 schedule.xlsx 在库
 	delRuleReq, _ := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/documents/%d", srv.URL, jsonOut.DocumentID), nil)
 	delRuleResp, _ := http.DefaultClient.Do(delRuleReq)
@@ -364,5 +382,103 @@ func TestV2DocumentsLifecycleHTTPMySQL(t *testing.T) {
 	askResp2.Body.Close()
 	if !askOut2.Refused {
 		t.Fatalf("expected refusal after document deletion, got %+v", askOut2)
+	}
+}
+
+type docScopeDriver struct{}
+type docScopeConn struct{}
+type docScopeConnector struct{}
+type docScopeRows struct{ idx int }
+
+func (docScopeDriver) Open(string) (driver.Conn, error)                { return docScopeConn{}, nil }
+func (docScopeConnector) Connect(context.Context) (driver.Conn, error) { return docScopeConn{}, nil }
+func (docScopeConnector) Driver() driver.Driver                        { return docScopeDriver{} }
+func (docScopeConn) Prepare(string) (driver.Stmt, error)               { return nil, errors.New("unused") }
+func (docScopeConn) Close() error                                      { return nil }
+func (docScopeConn) Begin() (driver.Tx, error)                         { return nil, errors.New("unused") }
+func (docScopeConn) QueryContext(context.Context, string, []driver.NamedValue) (driver.Rows, error) {
+	return &docScopeRows{}, nil
+}
+func (*docScopeRows) Columns() []string {
+	return []string{"id", "document_id", "heading_path", "content", "embedding"}
+}
+func (*docScopeRows) Close() error { return nil }
+func (r *docScopeRows) Next(v []driver.Value) error {
+	rows := [][]driver.Value{
+		{int64(1), int64(10), "Doc 10", "Doc 10 port 8081", "[1,0]"},
+		{int64(2), int64(20), "Doc 20", "Doc 20 port 9092", "[1,0]"},
+	}
+	if r.idx >= len(rows) {
+		return io.EOF
+	}
+	copy(v, rows[r.idx])
+	r.idx++
+	return nil
+}
+
+func TestAskDocumentIDsIsolationOffline(t *testing.T) {
+	var chatCalls atomic.Int64
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/embeddings" {
+			io.WriteString(w, `{"data":[{"embedding":[1,0]}]}`)
+			return
+		}
+		chatCalls.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []any{map[string]any{
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": "Doc 20 listens on 9092 [1]。",
+				},
+			}},
+		})
+	}))
+	defer provider.Close()
+
+	db := sql.OpenDB(docScopeConnector{})
+	defer db.Close()
+	st := &store.Store{}
+	f := reflect.ValueOf(st).Elem().FieldByName("db")
+	reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem().Set(reflect.ValueOf(db))
+
+	h := &Handler{
+		Store:    st,
+		Embedder: ingest.NewEmbedder(provider.URL, "test", "test"),
+		Chat:     generate.NewChatClient(provider.URL, "test", "test"),
+	}
+	router := NewRouter(h)
+
+	// 仅查材料 20，必须只返回 document_id=20 的引用
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/ask", strings.NewReader(`{"question":"port","document_ids":[20]}`))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var got askResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Refused || len(got.Citations) != 1 || got.Citations[0].DocumentID != 20 || got.Citations[0].ChunkID != 2 {
+		t.Fatalf("expected only document 20 citation, got %+v", got)
+	}
+
+	// 查询不存在切片的材料 999，应直接拒答且不调 LLM
+	beforeEmpty := chatCalls.Load()
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodPost, "/api/ask", strings.NewReader(`{"question":"port","document_ids":[999]}`))
+	req2.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w2.Code, w2.Body.String())
+	}
+	var gotEmpty askResponse
+	if err := json.Unmarshal(w2.Body.Bytes(), &gotEmpty); err != nil {
+		t.Fatal(err)
+	}
+	if !gotEmpty.Refused || chatCalls.Load() != beforeEmpty {
+		t.Fatalf("expected refusal without LLM call for unknown doc id, got %+v", gotEmpty)
 	}
 }

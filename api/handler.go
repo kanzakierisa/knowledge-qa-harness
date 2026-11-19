@@ -50,9 +50,15 @@ func NewRouter(h *Handler) *gin.Engine {
 	r.GET("/api/projects", h.ListProjects)
 	r.POST("/api/projects", h.CreateProject)
 	r.GET("/api/documents", h.ListDocuments)
+	r.GET("/api/documents/:id", h.GetDocument)
 	r.POST("/api/documents/upload", h.UploadDocument)
 	r.PATCH("/api/documents/:id", h.PatchDocument)
 	r.DELETE("/api/documents/:id", h.DeleteDocument)
+	r.GET("/api/gaps", h.ListGaps)
+	r.PATCH("/api/gaps/:id", h.PatchGap)
+	r.POST("/api/feedback", h.CreateFeedback)
+	r.GET("/api/feedback", h.ListFeedback)
+	r.POST("/api/feedback/:id/promote", h.PromoteFeedback)
 	evalHandler := newEvalHTTPHandler(h)
 	r.POST("/api/eval/run", evalHandler.Run)
 	r.POST("/api/eval/mark", evalHandler.Mark)
@@ -70,15 +76,17 @@ func (h *Handler) Index(c *gin.Context) {
 }
 
 type askRequest struct {
-	Question    string `json:"question" binding:"required"`
-	Debug       bool   `json:"debug"`        // 可选：true 时返回每路分数明细，默认关闭
-	ProjectSlug string `json:"project_slug"` // 可选："" 或 "auto" 为自动路由，否则强隔离为 target + shared
-	Compare     bool   `json:"compare"`      // 可选：true 且命中跨项目歧义时对候选项目逐一生成对照回答
+	Question    string  `json:"question" binding:"required"`
+	Debug       bool    `json:"debug"`        // 可选：true 时返回每路分数明细，默认关闭
+	ProjectSlug string  `json:"project_slug"` // 可选："" 或 "auto" 为自动路由，否则强隔离为 target + shared
+	DocumentIDs []int64 `json:"document_ids"` // 可选：非空时仅在指定材料（文档 ID）内检索
+	Compare     bool    `json:"compare"`      // 可选：true 且命中跨项目歧义时对候选项目逐一生成对照回答
 }
 
 type citation struct {
 	N           int    `json:"n"`
 	ChunkID     int64  `json:"chunk_id"`
+	DocumentID  int64  `json:"document_id,omitempty"`
 	Heading     string `json:"heading"`
 	Content     string `json:"content"`
 	ProjectSlug string `json:"project_slug,omitempty"`
@@ -139,21 +147,24 @@ type comparisonResult struct {
 }
 
 type askResponse struct {
-	Answer          string             `json:"answer"`
-	Citations       []citation         `json:"citations"`
-	Refused         bool               `json:"refused"`
-	Retried         bool               `json:"retried"` // 阶段 4：引用校验失败后是否重试过
-	ProjectResolved string             `json:"project_resolved,omitempty"`
-	Ambiguity       *ambiguityInfo     `json:"ambiguity,omitempty"`
-	Warnings        []askWarning       `json:"warnings,omitempty"`
-	Comparisons     []comparisonResult `json:"comparisons,omitempty"`
-	Debug           []debugChunk       `json:"debug,omitempty"`
+	Answer            string             `json:"answer"`
+	Citations         []citation         `json:"citations"`
+	RetrievedChunkIDs []int64            `json:"retrieved_chunk_ids,omitempty"`
+	Refused           bool               `json:"refused"`
+	Retried           bool               `json:"retried"` // 阶段 4：引用校验失败后是否重试过
+	ProjectResolved   string             `json:"project_resolved,omitempty"`
+	Ambiguity         *ambiguityInfo     `json:"ambiguity,omitempty"`
+	Warnings          []askWarning       `json:"warnings,omitempty"`
+	Comparisons       []comparisonResult `json:"comparisons,omitempty"`
+	Debug             []debugChunk       `json:"debug,omitempty"`
 }
 
 type askOptions struct {
 	Debug       bool
 	ProjectSlug string
+	DocumentIDs []int64
 	Compare     bool
+	RecordGap   bool // 仅线上 POST /api/ask 为 true；评测跑批与 Doc CI/CD 必须为 false
 }
 
 // Ask 校验 HTTP 入参后调用内部问答函数；评测也复用该内部函数。
@@ -166,7 +177,9 @@ func (h *Handler) Ask(c *gin.Context) {
 	resp, _, err := h.answerQuestionWithOptions(req.Question, askOptions{
 		Debug:       req.Debug,
 		ProjectSlug: req.ProjectSlug,
+		DocumentIDs: req.DocumentIDs,
 		Compare:     req.Compare,
+		RecordGap:   true,
 	})
 	if err != nil {
 		if errors.Is(err, store.ErrProjectNotFound) {
@@ -184,12 +197,47 @@ func (h *Handler) answerQuestion(question string, debug bool) (askResponse, []re
 	return h.answerQuestionWithOptions(question, askOptions{Debug: debug})
 }
 
+func normalizePositiveIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[int64]bool, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id > 0 && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func resolveProjectFromChunks(chunks []store.Chunk, fallback string) string {
+	if fallback != "" && fallback != "auto" && fallback != "all" {
+		return fallback
+	}
+	resolved := ""
+	for _, ch := range chunks {
+		slug := strings.TrimSpace(ch.ProjectSlug)
+		if slug == "" {
+			continue
+		}
+		if resolved == "" {
+			resolved = slug
+		} else if resolved != slug {
+			return ""
+		}
+	}
+	return resolved
+}
+
 // answerQuestionWithOptions 走完整多项目问答链路：
 // 项目隔离校验 → 读切片与问题向量化 → 混合检索与治理加权 → 跨项目歧义拦截 → 阈值拒答 →
 // LLM 生成与句级引用校验 → 废弃文档警告组装。
 func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (askResponse, []retrieve.MergedChunk, error) {
 	reqSlug := strings.TrimSpace(opts.ProjectSlug)
 	isAuto := reqSlug == "" || reqSlug == "auto" || reqSlug == "all"
+	docIDs := normalizePositiveIDs(opts.DocumentIDs)
 
 	if !isAuto {
 		if _, err := h.Store.GetProjectBySlug(reqSlug); err != nil {
@@ -207,10 +255,40 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		return askResponse{}, nil, err
 	}
 
+	if len(docIDs) > 0 {
+		scoped := retrieve.FilterChunksByProject(chunks, reqSlug)
+		scoped = retrieve.FilterChunksByDocuments(scoped, docIDs)
+		if len(scoped) == 0 {
+			log.Printf("[ask] 指定材料 %v 暂无切片，未调用 LLM：%q", docIDs, question)
+			h.recordGapIfEnabled(opts, question, "threshold", 0, nil)
+			return askResponse{
+				Answer:          "当前选定材料暂无可用资料，文档中没有依据",
+				Citations:       []citation{},
+				Refused:         true,
+				ProjectResolved: resolveProjectFromChunks(scoped, reqSlug),
+			}, nil, nil
+		}
+		qVec, err := h.Embedder.Embed(question)
+		if err != nil {
+			return askResponse{}, nil, err
+		}
+		scoredDocs := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{
+			ProjectSlug: reqSlug,
+			DocumentIDs: docIDs,
+		})
+		resolved := resolveProjectFromChunks(scoped, reqSlug)
+		if len(scoredDocs) == 0 || scoredDocs[0].Final < refuseThreshold {
+			return h.finalizeAnswer(question, truncateMerged(scoredDocs, retrieve.TopN), resolved, opts, false)
+		}
+		top := retrieve.RerankAndSelect(question, scoredDocs, h.Reranker, retrieve.TopN, refuseThreshold)
+		return h.finalizeAnswer(question, top, resolved, opts, true)
+	}
+
 	if !isAuto {
 		scoped := retrieve.FilterChunksByProject(chunks, reqSlug)
 		if len(scoped) == 0 {
 			log.Printf("[ask] 项目 %q（含 shared）暂无切片，未调用 LLM：%q", reqSlug, question)
+			h.recordGapIfEnabled(opts, question, "threshold", 0, nil)
 			return askResponse{
 				Answer:          "当前项目（含公共规范库）暂无资料，文档中没有依据",
 				Citations:       []citation{},
@@ -219,6 +297,7 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 			}, nil, nil
 		}
 	} else if len(chunks) == 0 {
+		h.recordGapIfEnabled(opts, question, "threshold", 0, nil)
 		return askResponse{
 			Answer:    generate.RefuseAnswer,
 			Citations: []citation{},
@@ -234,16 +313,16 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 	if !isAuto {
 		scoredProj := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{ProjectSlug: reqSlug})
 		if len(scoredProj) == 0 || scoredProj[0].Final < refuseThreshold {
-			return h.finalizeAnswer(question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts.Debug, false)
+			return h.finalizeAnswer(question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts, false)
 		}
 		top := retrieve.RerankAndSelect(question, scoredProj, h.Reranker, retrieve.TopN, refuseThreshold)
-		return h.finalizeAnswer(question, top, reqSlug, opts.Debug, true)
+		return h.finalizeAnswer(question, top, reqSlug, opts, true)
 	}
 
 	scored := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{})
 	if len(scored) == 0 || scored[0].Final < refuseThreshold {
 		top := truncateMerged(scored, retrieve.TopN)
-		return h.finalizeAnswer(question, top, "", opts.Debug, false)
+		return h.finalizeAnswer(question, top, "", opts, false)
 	}
 
 	amb := detectCrossProjectAmbiguity(scored, refuseThreshold, retrieve.TopN)
@@ -259,7 +338,8 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 				} else {
 					candTop = truncateMerged(candScored, retrieve.TopN)
 				}
-				candResp, _, err := h.finalizeAnswer(question, candTop, cand.ProjectSlug, opts.Debug, candPassed)
+				compareOpts := askOptions{Debug: opts.Debug, ProjectSlug: cand.ProjectSlug, RecordGap: false}
+				candResp, _, err := h.finalizeAnswer(question, candTop, cand.ProjectSlug, compareOpts, candPassed)
 				if err != nil {
 					return askResponse{}, amb.FilteredTop, err
 				}
@@ -308,22 +388,25 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		}
 	}
 	if len(scopedScored) == 0 || scopedScored[0].Final < refuseThreshold {
-		return h.finalizeAnswer(question, truncateMerged(scopedScored, retrieve.TopN), amb.ProjectResolved, opts.Debug, false)
+		return h.finalizeAnswer(question, truncateMerged(scopedScored, retrieve.TopN), amb.ProjectResolved, opts, false)
 	}
 	filteredTop := retrieve.RerankAndSelect(question, scopedScored, h.Reranker, retrieve.TopN, refuseThreshold)
-	return h.finalizeAnswer(question, filteredTop, amb.ProjectResolved, opts.Debug, true)
+	return h.finalizeAnswer(question, filteredTop, amb.ProjectResolved, opts, true)
 }
 
-func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, projectResolved string, debug bool, thresholdPassed bool) (askResponse, []retrieve.MergedChunk, error) {
+func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, projectResolved string, opts askOptions, thresholdPassed bool) (askResponse, []retrieve.MergedChunk, error) {
+	retrievedIDs := chunkIDsFromMerged(top)
 	if len(top) == 0 || (!thresholdPassed && top[0].Final < refuseThreshold) {
 		log.Printf("[ask] 阈值拒答（Top1 融合分 %.4f < %.2f），未调用 LLM：%q",
 			top1Final(top), refuseThreshold, question)
+		h.recordGapIfEnabled(opts, question, "threshold", top1Final(top), top)
 		return askResponse{
-			Answer:          generate.RefuseAnswer,
-			Citations:       []citation{},
-			Refused:         true,
-			ProjectResolved: projectResolved,
-			Debug:           maybeDebug(debug, top),
+			Answer:            generate.RefuseAnswer,
+			Citations:         []citation{},
+			RetrievedChunkIDs: retrievedIDs,
+			Refused:           true,
+			ProjectResolved:   projectResolved,
+			Debug:             maybeDebug(opts.Debug, top),
 		}, top, nil
 	}
 
@@ -335,13 +418,19 @@ func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, pr
 	if generate.IsRefusal(answer) || !ok {
 		log.Printf("[ask] 生成侧拒答（模型自拒答=%v, 引用校验通过=%v, 重试过=%v）：%q",
 			generate.IsRefusal(answer), ok, retried, question)
+		reason := "model_refusal"
+		if !ok {
+			reason = "citation_fail"
+		}
+		h.recordGapIfEnabled(opts, question, reason, top1Final(top), top)
 		return askResponse{
-			Answer:          generate.RefuseAnswer,
-			Citations:       []citation{},
-			Refused:         true,
-			Retried:         retried,
-			ProjectResolved: projectResolved,
-			Debug:           maybeDebug(debug, top),
+			Answer:            generate.RefuseAnswer,
+			Citations:         []citation{},
+			RetrievedChunkIDs: retrievedIDs,
+			Refused:           true,
+			Retried:           retried,
+			ProjectResolved:   projectResolved,
+			Debug:             maybeDebug(opts.Debug, top),
 		}, top, nil
 	}
 
@@ -349,14 +438,51 @@ func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, pr
 		log.Printf("[ask] 引用校验重试后通过：%q", question)
 	}
 	return askResponse{
-		Answer:          answer,
-		Citations:       buildCitations(top),
-		Refused:         false,
-		Retried:         retried,
-		ProjectResolved: projectResolved,
-		Warnings:        buildDeprecatedWarnings(answer, top),
-		Debug:           maybeDebug(debug, top),
+		Answer:            answer,
+		Citations:         buildCitations(top),
+		RetrievedChunkIDs: retrievedIDs,
+		Refused:           false,
+		Retried:           retried,
+		ProjectResolved:   projectResolved,
+		Warnings:          buildDeprecatedWarnings(answer, top),
+		Debug:             maybeDebug(opts.Debug, top),
 	}, top, nil
+}
+
+func chunkIDsFromMerged(top []retrieve.MergedChunk) []int64 {
+	if len(top) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(top))
+	for _, sc := range top {
+		ids = append(ids, sc.Chunk.ID)
+	}
+	return ids
+}
+
+func (h *Handler) recordGapIfEnabled(opts askOptions, question, refuseReason string, top1 float64, top []retrieve.MergedChunk) {
+	if !opts.RecordGap || h.Store == nil {
+		return
+	}
+	var nearestID *int64
+	var nearestHeading string
+	if len(top) > 0 {
+		if top[0].Chunk.ID > 0 {
+			id := top[0].Chunk.ID
+			nearestID = &id
+		}
+		nearestHeading = top[0].Chunk.HeadingPath
+	}
+	if err := h.Store.RecordKnowledgeGap(store.RecordGapParams{
+		ProjectSlug:    store.NormalizeGapProjectSlug(opts.ProjectSlug),
+		Question:       question,
+		RefuseReason:   refuseReason,
+		Top1Final:      top1,
+		NearestChunkID: nearestID,
+		NearestHeading: nearestHeading,
+	}); err != nil && !store.IsV1SchemaMissingError(err) {
+		log.Printf("[gap] 记录知识盲区失败：%v", err)
+	}
 }
 
 type ambiguityEvaluation struct {
@@ -500,6 +626,7 @@ func buildCitations(top []retrieve.MergedChunk) []citation {
 		cits = append(cits, citation{
 			N:           i + 1,
 			ChunkID:     sc.Chunk.ID,
+			DocumentID:  sc.Chunk.DocumentID,
 			Heading:     sc.Chunk.HeadingPath,
 			Content:     sc.Chunk.Content,
 			ProjectSlug: sc.Chunk.ProjectSlug,

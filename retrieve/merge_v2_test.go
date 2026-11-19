@@ -153,3 +153,54 @@ func TestApplyMultiEntityCoveragePromotesMissingIdentifierAndRespectsMinScore(t 
 		}
 	}
 }
+
+func TestMergeWithOptionsDocumentIsolation(t *testing.T) {
+	chunks := []store.Chunk{
+		{
+			ID:          1,
+			DocumentID:  101,
+			ProjectSlug: "project-alpha",
+			HeadingPath: "材料 A > 端口",
+			Content:     "材料 A 服务监听端口 8091。",
+			Embedding:   "[1,0]",
+			DocLevel:    "spec",
+			DocStatus:   "active",
+		},
+		{
+			ID:          2,
+			DocumentID:  202,
+			ProjectSlug: "project-alpha",
+			HeadingPath: "材料 B > 端口",
+			Content:     "材料 B 服务监听端口 9090。",
+			Embedding:   "[1,0]",
+			DocLevel:    "spec",
+			DocStatus:   "active",
+		},
+		{
+			ID:          3,
+			DocumentID:  303,
+			ProjectSlug: "shared",
+			HeadingPath: "公共 > 规范",
+			Content:     "公共规范端口说明。",
+			Embedding:   "[0.9,0.1]",
+			DocLevel:    "spec",
+			DocStatus:   "active",
+		},
+	}
+
+	got := MergeWithOptions("服务监听端口", []float64{1, 0}, chunks, TopN, MergeOptions{DocumentIDs: []int64{202}})
+	if len(got) != 1 || got[0].Chunk.ID != 2 || got[0].Chunk.DocumentID != 202 {
+		t.Fatalf("expected only document 202 chunk, got %+v", got)
+	}
+
+	// 多选材料 101 与 303，不得混入 202
+	gotMulti := MergeWithOptions("端口", []float64{1, 0}, chunks, TopN, MergeOptions{DocumentIDs: []int64{101, 303}})
+	if len(gotMulti) != 2 {
+		t.Fatalf("expected 2 chunks from documents 101 & 303, got %d", len(gotMulti))
+	}
+	for _, sc := range gotMulti {
+		if sc.Chunk.DocumentID == 202 {
+			t.Fatalf("document isolation leaked doc 202: %+v", sc.Chunk)
+		}
+	}
+}

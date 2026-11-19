@@ -22,6 +22,7 @@ func newEvalHTTPHandler(h *Handler) *evalHTTPHandler {
 		resp, top, err := h.answerQuestionWithOptions(question, askOptions{
 			Debug:       false,
 			ProjectSlug: projectSlug,
+			RecordGap:   false,
 		})
 		ids := make([]int64, 0, len(top))
 		for _, chunk := range top {

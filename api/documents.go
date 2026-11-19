@@ -11,7 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"knowledge-qa/generate"
 	"knowledge-qa/ingest"
+	"knowledge-qa/retrieve"
 	"knowledge-qa/store"
 )
 
@@ -80,6 +82,29 @@ func (h *Handler) ListDocuments(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"documents": docs})
+}
+
+// GetDocument 查询单篇文档详情、全文内容与有序切片（供右侧原文面板预览）。
+func (h *Handler) GetDocument(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "文档 id 必须为正整数"})
+		return
+	}
+	if h.Store == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Store 未初始化"})
+		return
+	}
+	detail, err := h.Store.GetDocumentDetail(id)
+	if err != nil {
+		if errors.Is(err, store.ErrDocumentNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, detail)
 }
 
 type uploadJSONRequest struct {
@@ -304,7 +329,144 @@ func (h *Handler) UploadDocument(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, result)
+
+	resp := uploadDocumentResponse{InsertDocResult: result}
+	if result.Replaced {
+		resp.RegressionSummary = h.runDocRegression(result.AffectedItems)
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// DocRegressionDetail 记录 Doc CI/CD 局部回归中单道受影响金标题的校验结果。
+type DocRegressionDetail struct {
+	QuestionID     int64  `json:"question_id"`
+	Question       string `json:"question"`
+	QuestionSet    string `json:"question_set,omitempty"`
+	ProjectSlug    string `json:"project_slug,omitempty"`
+	ShouldRefuse   bool   `json:"should_refuse"`
+	Status         string `json:"status"`
+	OldGoldChunkID *int64 `json:"old_gold_chunk_id,omitempty"`
+	NewGoldChunkID *int64 `json:"new_gold_chunk_id,omitempty"`
+	Refused        bool   `json:"refused"`
+	Hit            *bool  `json:"hit,omitempty"`
+	CitationOK     *bool  `json:"citation_ok,omitempty"`
+	Answer         string `json:"answer,omitempty"`
+	Reason         string `json:"reason,omitempty"`
+}
+
+// DocRegressionSummary 汇总覆写文档后自动重跑受影响金标题的局部回归结果。
+type DocRegressionSummary struct {
+	Checked             int                   `json:"checked"`
+	Passed              int                   `json:"passed"`
+	RefusedUnexpectedly int                   `json:"refused_unexpectedly"`
+	NeedsReview         int                   `json:"needs_review"`
+	Details             []DocRegressionDetail `json:"details"`
+}
+
+type uploadDocumentResponse struct {
+	store.InsertDocResult
+	RegressionSummary *DocRegressionSummary `json:"regression_summary,omitempty"`
+}
+
+func (h *Handler) runDocRegression(items []store.AffectedEvalItem) *DocRegressionSummary {
+	summary := &DocRegressionSummary{
+		Details: make([]DocRegressionDetail, 0, len(items)),
+	}
+	for _, item := range items {
+		q := item.Question
+		detail := DocRegressionDetail{
+			QuestionID:     q.ID,
+			Question:       q.Question,
+			QuestionSet:    q.QuestionSet,
+			ProjectSlug:    q.ProjectSlug,
+			ShouldRefuse:   q.ShouldRefuse,
+			OldGoldChunkID: item.OldGoldChunkID,
+			NewGoldChunkID: item.NewGoldChunkID,
+		}
+		if item.NeedsReview {
+			summary.NeedsReview++
+			detail.Status = "needs_review"
+			detail.Reason = item.ReviewReason
+			summary.Details = append(summary.Details, detail)
+			continue
+		}
+
+		summary.Checked++
+		if h.Embedder == nil || h.Chat == nil {
+			detail.Status = "error"
+			detail.Reason = "问答依赖未初始化，无法执行局部回归"
+			summary.Details = append(summary.Details, detail)
+			continue
+		}
+
+		// Doc CI/CD 内部局部回归必须关闭盲区写入（RecordGap: false）
+		ansResp, top, err := h.answerQuestionWithOptions(q.Question, askOptions{
+			Debug:       false,
+			ProjectSlug: q.ProjectSlug,
+			RecordGap:   false,
+		})
+		if err != nil {
+			detail.Status = "error"
+			detail.Reason = err.Error()
+			summary.Details = append(summary.Details, detail)
+			continue
+		}
+
+		detail.Refused = ansResp.Refused
+		detail.Answer = ansResp.Answer
+
+		if q.ShouldRefuse {
+			if ansResp.Refused {
+				summary.Passed++
+				detail.Status = "passed"
+			} else {
+				detail.Status = "false_answer"
+				detail.Reason = "应拒答题在文档更新后发生误答"
+			}
+			summary.Details = append(summary.Details, detail)
+			continue
+		}
+
+		hit := containsMergedChunkID(top, item.NewGoldChunkID)
+		detail.Hit = &hit
+		if !ansResp.Refused {
+			citOK, _ := generate.ValidateCitations(ansResp.Answer, len(top))
+			detail.CitationOK = &citOK
+		}
+
+		switch {
+		case ansResp.Ambiguity != nil && ansResp.Ambiguity.Detected:
+			detail.Status = "ambiguous"
+			detail.Reason = "触发跨项目歧义拦截，未能直接作答"
+		case ansResp.Refused:
+			summary.RefusedUnexpectedly++
+			detail.Status = "refused_unexpectedly"
+			detail.Reason = "文档覆盖后该可作答题触发意外拒答"
+		case !hit:
+			detail.Status = "missed"
+			detail.Reason = "重绑后的标准切片未进入检索 Top 5"
+		case detail.CitationOK != nil && !*detail.CitationOK:
+			detail.Status = "citation_failed"
+			detail.Reason = "回答未通过句级引用校验"
+		default:
+			summary.Passed++
+			detail.Status = "passed"
+		}
+		summary.Details = append(summary.Details, detail)
+	}
+	return summary
+}
+
+func containsMergedChunkID(top []retrieve.MergedChunk, target *int64) bool {
+	if target == nil || *target <= 0 {
+		return false
+	}
+	for _, sc := range top {
+		if sc.Chunk.ID == *target {
+			return true
+		}
+	}
+	return false
 }
 
 type optionalInt64 struct {

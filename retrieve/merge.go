@@ -74,6 +74,8 @@ type MergedChunk struct {
 type MergeOptions struct {
 	// ProjectSlug 非空且不为 "auto"/"all" 时，仅保留目标项目与 "shared" 公共域切片参与打分。
 	ProjectSlug string
+	// DocumentIDs 非空时，仅保留属于指定文档 ID 的切片参与检索（按材料查询）。
+	DocumentIDs []int64
 	// MinCoverageScore 控制多标识符覆盖保底候选段的最低融合分（<=0 时使用 DefaultCoverageMinScore=0.35）。
 	MinCoverageScore float64
 	// DisableMultiEntity 禁用阶段 11 多标识符覆盖保底（用于对照回退）。
@@ -116,6 +118,27 @@ func FilterChunksByProject(chunks []store.Chunk, projectSlug string) []store.Chu
 	filtered := make([]store.Chunk, 0, len(chunks))
 	for _, c := range chunks {
 		if c.ProjectSlug == slug || c.ProjectSlug == "shared" {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+// FilterChunksByDocuments 按指定材料（文档 ID 列表）过滤切片；
+// 当 docIDs 中无正整数 ID 时返回原切片列表。
+func FilterChunksByDocuments(chunks []store.Chunk, docIDs []int64) []store.Chunk {
+	allowed := make(map[int64]bool, len(docIDs))
+	for _, id := range docIDs {
+		if id > 0 {
+			allowed[id] = true
+		}
+	}
+	if len(allowed) == 0 {
+		return chunks
+	}
+	filtered := make([]store.Chunk, 0, len(chunks))
+	for _, c := range chunks {
+		if allowed[c.DocumentID] {
 			filtered = append(filtered, c)
 		}
 	}
@@ -349,6 +372,9 @@ func extractIdentifiers(s string) []string {
 // ScoreWithOptions 返回过滤并融合排序后的全部候选切片，供需要跨项目歧义检测的调用方查看 Top N 以上候选。
 func ScoreWithOptions(question string, questionVec []float64, chunks []store.Chunk, opts MergeOptions) []MergedChunk {
 	scoped := FilterChunksByProject(chunks, opts.ProjectSlug)
+	if len(opts.DocumentIDs) > 0 {
+		scoped = FilterChunksByDocuments(scoped, opts.DocumentIDs)
+	}
 	if len(scoped) == 0 {
 		return nil
 	}
