@@ -1,9 +1,17 @@
 # 企业级可溯源知识问答与文档治理工作台（Knowledge QA Harness）
 
+![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![Zero Framework](https://img.shields.io/badge/Orchestration-Zero%20Heavy%20Framework-10B981?style=flat-square)
+![Eval Base52](https://img.shields.io/badge/base52-100%25%20(40%2F40)-22C55E?style=flat-square)
+![Holdout Near-Miss](https://img.shields.io/badge/holdout%20near__miss-13%2F13%20(100%25)-22C55E?style=flat-square)
+![Docker](https://img.shields.io/badge/Docker%20Compose-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)
+
 > 用纯 Go 零重型编排框架打造的**可控、可溯源、可量化回归**的知识库问答与文档治理系统。支持 `.md / .txt / .docx / .xlsx / .pdf / 图片(VLM)` 多格式入库、项目隔离与废弃版本提示、句级证据荧光溯源、一键复制飞书可信引用、`--setup-ui` 免落盘网页引导配置、MySQL 多轮会话任务持久化、文档变更自动局部回归（Doc CI/CD）以及「盲区雷达 + 用户反馈 + 金标评测集」全链路闭环。
 
-- **3 分钟全链路演示脚本**：见 [docs/v2_demo_script.md](docs/v2_demo_script.md)
-- **Windows 免环境一键安装包**：见 GitHub Releases 中的 `knowledge-qa-release.zip`（内含预编译 `.exe` 与双击启动脚本，无需安装 Go）
+- **3 分钟全链路演示脚本**：[docs/v2_demo_script.md](docs/v2_demo_script.md)
+- **离线评测实验详录**：V1 迭代归因 [docs/iterations.md](docs/iterations.md) · V2/V3 对抗盲测与回滚记录 [docs/v2_iterations.md](docs/v2_iterations.md)
+- **Windows 免环境一键安装包**：见仓库 [Releases](../../releases) 页面下载 `knowledge-qa-release.zip`（内含预编译 `.exe` 与双击启动脚本，无需安装 Go）
 
 ---
 
@@ -31,6 +39,28 @@
 
 ## 二、系统架构（V3）
 
+```mermaid
+flowchart TD
+  In["多格式文档 (.md / .txt / .docx / .xlsx / .pdf / 图片)"] --> Conv["ingest.Convert + SplitMarkdownV3 (表格/代码块保护)"]
+  Conv --> Emb["ingest.Embedder (OpenAI 兼容向量接口)"]
+  Emb --> DB[("MySQL 8.0 · knowledge_qa_v3")]
+
+  Q["用户提问 POST /api/ask"] --> Ret["双路检索: 0.75 Cosine + 0.25 BM25 (Floor=45.0)"]
+  DB --> Ret
+  Ret --> Iso{"项目隔离与歧义检测"}
+  Iso -->|"auto 模式多项目竞争差 <= 0.08"| Amb["结构化歧义澄清 / compare 并排对照"]
+  Iso -->|"单一项目或锁定材料"| Gate{"Top1 融合分 < 0.35 ?"}
+  Gate -->|"是 (零 LLM 调用)"| Ref["直接拒答: 文档中没有依据"]
+  Ref -->|"仅线上提问记录"| Gap[("knowledge_gaps 盲区雷达")]
+  Gate -->|"否"| Gen["G1 Quote-First JSON 生成 + ValidateCitations 硬校验"]
+  Gen -->|"违规重试 1 次仍不过"| Ref
+  Gen -->|"通过"| UI["三栏工作台: 句级 mark 高亮 · 废弃警示 · 👍/👎 反馈 · 复制可信引用"]
+  UI -->|"👎 转正 / Doc CI/CD"| Eval[("eval_questions: base52 / holdout / feedback")]
+```
+
+<details>
+<summary>展开查看模块与数据表详细流转图（ASCII）</summary>
+
 ```text
   多格式输入 (.md / .txt / .docx / .xlsx / .pdf / 图片)
         │
@@ -56,6 +86,8 @@
    ├── 「资料库治理」：项目与格式总览、全文预览、废弃替代设置、覆盖重切与 Doc CI/CD 回归体检单
    └── 「盲区与反馈」：待补充盲区直达治理、用户反馈一键转正评测集、反馈活评测 + 右对齐「全部提问」线上真实统计
 ```
+
+</details>
 
 ---
 
