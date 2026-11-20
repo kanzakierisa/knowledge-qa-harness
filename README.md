@@ -1,4 +1,4 @@
-# 企业级可溯源知识问答与文档治理工作台（Knowledge QA Harness）
+# 可溯源知识问答与文档治理工作台（Knowledge QA Harness）
 
 ![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white)
@@ -17,12 +17,26 @@
 
 ## 面向 AI 产品：1 页纸核心设计思考
 
-> 为什么不用现成 RAG 编排框架套壳，而要手写一套 **Agent Harness**？因为团队真正不敢用 AI 问答，根因从来不是“模型不够聪明”，而是**边界不可控、指标无真值、文档会过期、改完不敢上线**。
+> 为什么不用现成 RAG 编排框架套壳，而要手写一套 **Agent Harness**？因为多项目团队不敢直接采信 AI 问答，根因往往不是“模型不够聪明”，而是**边界不可控、指标无真值、文档会过期、改完不敢上线**。
 
 1. **用确定性代码约束替代“祈祷式 Prompt”**：Retrieval `< 0.35` 直接零 LLM 拒答；生成采用 **G1 Quote-First JSON 契约**（先逐字摘录原句再作答），并经过 `ValidateCitations` 句级硬校验，失败仅重试 1 次、仍不过兜底拒答。
 2. **用对抗盲测与“敢回滚”防止刷指标**：保留 `base52`（52 题）基线同时独立构建 39 题 `holdout` 盲测集，专门设置 13 题复用真实 API 名的**高分陷阱拒答题（`near_miss_refusal`）**守住 `100%` 拒答底线；发现 `gte-rerank-v2` 虽能拉高单题却使 `base52` 语义改写题退化 `-2.5%` 后，严格按红线默认关闭。
 3. **坚持“口径 B”反虚假繁荣**：线上用户提问没有标准 `gold_chunk_id`，系统**绝不伪造线上 100% 命中率**；「当前会话 / 全部提问」仅统计客观可测的句级引用校验率、用户主动 👍/👎 反馈率与真实拒答次数，离线回归与线上盲区库物理隔离。
 4. **把问答延伸到团队协作流**：回答卡片支持**「📋 复制可信引用」**（自动把 `[n]` 还原为可读文档名、章节与废弃警示，方便直接粘贴进飞书群/周报）；文档覆盖更新自动触发 **Doc CI/CD 局部回归**，防止新改一篇规范悄悄冲垮旧问答。
+
+---
+
+## 工作台界面速览
+
+| 智能问答与句级荧光溯源 | 跨项目歧义拦截与并排对照 |
+|---|---|
+| ![智能问答与句级荧光溯源](docs/images/01-qa-highlight.png) | ![跨项目歧义拦截与并排对照](docs/images/02-ambiguity-compare.png) |
+| 多轮持久化会话、废弃文档黄色警示、点击 `[1]` 触发 `<mark>` 句级荧光高亮与「复制可信引用」 | 全局 `auto` 模式下检测到多业务线端口/规则冲突，独立检索并排对照作答 |
+
+| 资料库治理与版本替代链 | 知识盲区雷达与反馈闭环 |
+|---|---|
+| ![资料库治理与版本替代链](docs/images/03-doc-governance.png) | ![知识盲区雷达与反馈闭环](docs/images/04-gap-radar.png) |
+| 默认聚焦内容消费 4 个可见空间（`.md/.docx/.xlsx/.pdf`），`go-gin` 评测基线默认隐藏保留 | 线上拒答自动沉淀至盲区雷达，👍/👎 反馈一键转正进入 `feedback` 活评测集 |
 
 ---
 
@@ -101,7 +115,7 @@ flowchart TD
    ```bash
    cp .env.example .env
    ```
-   - 若你**已在 `.env` 填好** `LLM_BASE_URL / LLM_API_KEY / LLM_CHAT_MODEL / LLM_EMBED_MODEL`（若对话与向量分属不同平台，可追加 `EMBED_BASE_URL` / `EMBED_API_KEY`），容器首次启动会自动幂等导入 `corpus/` 与 `corpus_v2/` 多格式演示语料及 4 道示例回归题。
+   - 若你**已在 `.env` 填好** `LLM_BASE_URL / LLM_API_KEY / LLM_CHAT_MODEL / LLM_EMBED_MODEL`（若对话与向量分属不同平台，可追加 `EMBED_BASE_URL` / `EMBED_API_KEY`），容器首次启动会自动幂等导入 `corpus_v2/` 下的内容消费多格式演示语料（同时保留默认隐藏的 `go-gin` 评测基线）及 6 道示例回归题。
    - 若你**暂未填写模型 Key**，可直接保留 `.env` 中的占位空值：Compose 默认开启 `ALLOW_WEB_SETUP=true`，服务会先以引导配置态启动，随后直接在网页弹窗中填写模型参数即可运行。
 2. 构建并启动服务：
    ```bash
@@ -136,8 +150,8 @@ flowchart TD
      .\scripts\quickstart.ps1 -SetupUI
      ```
 3. **内置演示沙箱（`scripts/seed_demo_v2.go`）说明**：
-   - 默认运行 `go run ./scripts/seed_demo_v2.go` 会采用双模式导入：若 `go-gin` 为空则直接复用 `corpus/` 下 39 篇 Markdown；若库中已有基线语料则完整保留不动，并幂等写入 `corpus_v2/` 多格式示例文档（`.md` / `.docx` / `.xlsx` / `.pdf` 与 `v1 deprecated -> v2 active` 版本链）、`feedback` 示例回归题与 2 条脱敏盲区示例。
-   - 如需在空库中一并导入完整 52 + 39 题金标与盲测夹具以复现全部量化指标，可追加参数：
+   - 默认运行 `go run ./scripts/seed_demo_v2.go` 会初始化 4 个面向产品演示的可见项目空间（`shared` 公共规范库、`content-promo` 内容活动运营、`short-drama` 红果短剧业务线、`novel-growth` 番茄小说创作者增长，共 11 篇 `.md / .docx / .xlsx / .pdf` 多格式文档、2 条 `deprecated -> active` 版本链与 6 道 `feedback` 回归题），同时**完整保留 `go-gin`（39 篇）并将其标记为 `is_hidden=1` 默认隐藏**（避免干扰日常产品界面展示；如需在前端查看可追加 `-show-go-gin`）。
+   - 如需在空库中一并导入完整 `base52`（52 题）+ `holdout`（39 题）金标与盲测夹具以复现全部量化指标，可追加参数：
      ```bash
      go run ./scripts/seed_demo_v2.go -with-base-eval
      ```

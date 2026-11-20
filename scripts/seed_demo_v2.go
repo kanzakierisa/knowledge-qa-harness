@@ -32,6 +32,7 @@ type demoDocSpec struct {
 
 func main() {
 	withBaseEval := flag.Bool("with-base-eval", false, "若当前库尚未导入 base52/holdout 基准评测集，按需一并导入")
+	showGoGin := flag.Bool("show-go-gin", false, "是否在前端界面公开展示 go-gin 基线技术文档（默认仅隐藏用于 52+39 回归评测）")
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -47,15 +48,21 @@ func main() {
 	emb := ingest.NewEmbedder(cfg.Embed.BaseURL, cfg.Embed.APIKey, cfg.Embed.Model)
 	conv := ingest.NewConverter(ingest.ConvertOptions{Engine: cfg.ConvertEngine})
 
-	// 1. 幂等初始化演示项目空间与规范展示名称（若库中已有测试夹具 project-alpha/project-beta 则设为隐藏）
-	if _, err := st.EnsureProject("shared", "【示例】公共规范库", "跨项目共享的团队研发上线值班、错误码与文档治理规范", false); err != nil {
+	// 1. 幂等初始化内容消费多项目空间；go-gin 默认隐藏（is_hidden=1）保留 52+39 评测基线，不删库不污染产品展示
+	if _, err := st.EnsureProject("shared", "【示例】公共规范库", "跨业务线共享的合规红线、研发上线值班与错误码规范", false); err != nil {
 		log.Fatalf("初始化 shared 项目失败：%v", err)
 	}
-	if _, err := st.EnsureProject("go-gin", "【示例】Go/Gin 技术文档", "Go 语言与 Gin Web 框架核心技术文档", false); err != nil {
+	if _, err := st.EnsureProject("go-gin", "Go/Gin 技术基线（评测隐藏）", "V1/V2 52+39 金标评测回归语料（默认隐藏，可通过 -show-go-gin 或评测集调用）", !*showGoGin); err != nil {
 		log.Fatalf("初始化 go-gin 项目失败：%v", err)
 	}
 	if _, err := st.EnsureProject("content-promo", "【示例】内容活动运营", "内容消费创作激励活动规则、排期表与审批规范", false); err != nil {
 		log.Fatalf("初始化 content-promo 项目失败：%v", err)
+	}
+	if _, err := st.EnsureProject("short-drama", "【示例】红果短剧业务线", "短剧版权三件套审核、上线核查与商业分账结算规范", false); err != nil {
+		log.Fatalf("初始化 short-drama 项目失败：%v", err)
+	}
+	if _, err := st.EnsureProject("novel-growth", "【示例】番茄小说创作者增长", "网文作者签约分成、分级全勤激励与版本迭代规范", false); err != nil {
+		log.Fatalf("初始化 novel-growth 项目失败：%v", err)
 	}
 
 	allProjs, err := st.ListAllProjects()
@@ -86,7 +93,7 @@ func main() {
 		log.Printf("检测到 go-gin 已存在 %d 篇文档，完整保留基线语料与切片", len(existingGoDocs))
 	}
 
-	// 3. 幂等导入 corpus_v2/shared 与 corpus_v2/content-promo 多格式演示语料
+	// 3. 幂等导入 corpus_v2/ 下内容消费多项目多格式演示语料
 	demoDocs := []demoDocSpec{
 		{
 			ProjectSlug: "shared",
@@ -96,11 +103,18 @@ func main() {
 			Owner:       "架构委员会",
 		},
 		{
+			ProjectSlug: "shared",
+			FilePath:    filepath.Join("corpus_v2", "shared", "content-compliance-baseline.md"),
+			Title:       "内容消费通用合规与审核红线总则",
+			DocLevel:    "spec",
+			Owner:       "内容安全与合规组",
+		},
+		{
 			ProjectSlug: "content-promo",
 			FilePath:    filepath.Join("corpus_v2", "content-promo", "winter-creator-incentive-handbook.docx"),
 			Title:       "冬季创作激励活动执行手册",
 			DocLevel:    "spec",
-			Owner:       "活动产运组",
+			Owner:       "活动运营组",
 		},
 		{
 			ProjectSlug: "content-promo",
@@ -130,6 +144,34 @@ func main() {
 			DocLevel:    "spec",
 			Owner:       "风控策略组",
 		},
+		{
+			ProjectSlug: "short-drama",
+			FilePath:    filepath.Join("corpus_v2", "short-drama", "short-drama-copyright-settlement.md"),
+			Title:       "红果短剧版权审核与分账结算规范",
+			DocLevel:    "spec",
+			Owner:       "短剧版权与结算组",
+		},
+		{
+			ProjectSlug: "short-drama",
+			FilePath:    filepath.Join("corpus_v2", "short-drama", "short-drama-release-checklist.xlsx"),
+			Title:       "短剧上线排期与合规检查表",
+			DocLevel:    "note",
+			Owner:       "剧目运营组",
+		},
+		{
+			ProjectSlug: "novel-growth",
+			FilePath:    filepath.Join("corpus_v2", "novel-growth", "novel-signing-incentive-v1.md"),
+			Title:       "旧版小说作者保底签约试行办法 v1",
+			DocLevel:    "spec",
+			Owner:       "历史规范归档",
+		},
+		{
+			ProjectSlug: "novel-growth",
+			FilePath:    filepath.Join("corpus_v2", "novel-growth", "novel-signing-incentive-v2.docx"),
+			Title:       "番茄小说作者分成与全勤激励规则 v2",
+			DocLevel:    "spec",
+			Owner:       "作者生态增长组",
+		},
 	}
 
 	docIDsByFile := make(map[string]int64, len(demoDocs))
@@ -153,7 +195,20 @@ func main() {
 		}); err != nil {
 			log.Fatalf("配置废弃替代关系失败：%v", err)
 		}
-		log.Printf("已配置废弃替代关系：doc#%d (v1, deprecated) -> doc#%d (v2, active)", v1ID, v2ID)
+		log.Printf("已配置废弃替代关系：doc#%d (活动v1, deprecated) -> doc#%d (活动v2, active)", v1ID, v2ID)
+	}
+	novelV1ID := docIDsByFile["novel-signing-incentive-v1.md"]
+	novelV2ID := docIDsByFile["novel-signing-incentive-v2.docx"]
+	if novelV1ID > 0 && novelV2ID > 0 {
+		depStatus := "deprecated"
+		if _, err := st.UpdateDocumentMeta(novelV1ID, store.DocumentPatch{
+			Status:             &depStatus,
+			SetReplacedByDocID: true,
+			ReplacedByDocID:    &novelV2ID,
+		}); err != nil {
+			log.Fatalf("配置小说规范废弃替代关系失败：%v", err)
+		}
+		log.Printf("已配置废弃替代关系：doc#%d (小说v1, deprecated) -> doc#%d (小说v2, active)", novelV1ID, novelV2ID)
 	}
 
 	// 5. 导入演示用回归题（写入 question_set='feedback' 并绑定 source_doc_id，用于 Doc CI/CD 与活评测演示，不污染 base52/holdout）
@@ -342,6 +397,24 @@ func seedDemoFeedbackQuestions(st *store.Store) error {
 			question:    "内容活动报名与领奖接口的限流阈值和触发后的业务错误码是什么？",
 			goldAnswer:  "单个账号每分钟最多发起 20 次报名校验请求，超出阈值将统一返回业务错误码 42901 并触发滑动窗口冷却 60 秒。",
 			category:    "promo_demo",
+		},
+		{
+			projectSlug: "short-drama",
+			filename:    "short-drama-copyright-settlement.md",
+			heading:     "红果短剧版权审核与分账结算规范 > 短剧分账结算周期",
+			snippet:     "T+10 个工作日",
+			question:    "红果短剧商业分成多久结算一次，达到多少有效完播可以提升分成比例？",
+			goldAnswer:  "每月结束后 T+10 个工作日内出具上月分账账单并触发打款；累计有效完播达到 50 万次起激活阶梯加成（基础 45%），达到 200 万次提升至 55%。",
+			category:    "drama_demo",
+		},
+		{
+			projectSlug: "novel-growth",
+			filename:    "novel-signing-incentive-v2.docx",
+			heading:     "番茄小说作者分成与全勤激励规则 v2 > 分级全勤激励表",
+			snippet:     "800 元/月",
+			question:    "新版番茄小说作者全勤激励规则中，基础全勤档和高产激励档的月更新字数与奖励分别是多少？",
+			goldAnswer:  "基础全勤档要求每日不少于 4000 字且月累计 12 万字及以上，奖励 800 元/月；高产激励档要求每日不少于 6000 字且月累计 18 万字及以上，奖励 1500 元/月。",
+			category:    "novel_demo",
 		},
 	}
 

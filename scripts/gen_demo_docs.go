@@ -47,8 +47,34 @@ func main() {
 		log.Fatal(err)
 	}
 
+	shortDramaDir := filepath.Join("corpus_v2", "short-drama")
+	if err := os.MkdirAll(shortDramaDir, 0o755); err != nil {
+		log.Fatal(err)
+	}
+	dramaXLSXBytes, err := buildShortDramaXLSX()
+	if err != nil {
+		log.Fatal("生成短剧 XLSX 失败：", err)
+	}
+	dramaXLSXPath := filepath.Join(shortDramaDir, "short-drama-release-checklist.xlsx")
+	if err := os.WriteFile(dramaXLSXPath, dramaXLSXBytes, 0o644); err != nil {
+		log.Fatal(err)
+	}
+
+	novelDir := filepath.Join("corpus_v2", "novel-growth")
+	if err := os.MkdirAll(novelDir, 0o755); err != nil {
+		log.Fatal(err)
+	}
+	novelDOCXBytes, err := buildNovelDOCX()
+	if err != nil {
+		log.Fatal("生成小说 DOCX 失败：", err)
+	}
+	novelDOCXPath := filepath.Join(novelDir, "novel-signing-incentive-v2.docx")
+	if err := os.WriteFile(novelDOCXPath, novelDOCXBytes, 0o644); err != nil {
+		log.Fatal(err)
+	}
+
 	conv := ingest.NewConverter(ingest.ConvertOptions{Engine: "native"})
-	for _, p := range []string{docxPath, xlsxPath, pdfPath} {
+	for _, p := range []string{docxPath, xlsxPath, pdfPath, dramaXLSXPath, novelDOCXPath} {
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			log.Fatal(err)
@@ -209,4 +235,72 @@ func buildDemoPDF() []byte {
 	}
 	fmt.Fprintf(&pdf, "trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", xrefOffset)
 	return pdf.Bytes()
+}
+
+func buildShortDramaXLSX() ([]byte, error) {
+	f := excelize.NewFile()
+	defer f.Close()
+
+	f.SetSheetName("Sheet1", "短剧上线核查清单")
+	rows := [][]string{
+		{"检查环节", "核验标准", "责任方", "SLA 时效"},
+		{"版权三件套审核", "核验著作权登记/改编授权链、备案号回执与肖像音乐授权函", "短剧版权组", "1 个工作日内"},
+		{"首屏与字幕合规", "前 30 秒无违规标题党与低俗诱导，中文字幕与配音对齐", "内容审核组", "4 小时内"},
+		{"完播率冷启监控", "上线 24 小时核心剧集前 3 集完播率低于 18% 触发调优", "剧目运营组", "T+1 自动告警"},
+		{"商业分账对账", "自然月结束后按有效完播阶梯核算分账金额并打款", "业务财务组", "每月 T+10 工作日"},
+	}
+	for rIdx, row := range rows {
+		for cIdx, val := range row {
+			cell, _ := excelize.CoordinatesToCellName(cIdx+1, rIdx+1)
+			_ = f.SetCellValue("短剧上线核查清单", cell, val)
+		}
+	}
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func buildNovelDOCX() ([]byte, error) {
+	doc, err := godocx.NewDocument()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := doc.AddHeading("番茄小说作者分成与全勤激励规则 v2", 1); err != nil {
+		return nil, err
+	}
+	doc.AddParagraph("生效说明：本规则替代《旧版小说作者保底签约试行办法 v1》，适用于新签约与续约网文作者的分成激励与全勤考核。")
+
+	if _, err := doc.AddHeading("订阅与广告分成体系", 2); err != nil {
+		return nil, err
+	}
+	doc.AddParagraph("新版签约作品统一采用「免费阅读广告分成 50% + 会员订阅净收益 50%」双轨结算，并于每月 10 日前在作家后台自动出具上月明细账单。")
+
+	if _, err := doc.AddHeading("分级全勤激励表", 2); err != nil {
+		return nil, err
+	}
+	tbl := doc.AddTable()
+	rows := [][]string{
+		{"全勤档位", "日更字数要求", "月累计有效字数", "全勤奖励"},
+		{"基础全勤档", "每日不少于 4,000 字", "12 万字及以上", "800 元/月"},
+		{"高产激励档", "每日不少于 6,000 字", "18 万字及以上", "1,500 元/月"},
+	}
+	for _, r := range rows {
+		row := tbl.AddRow()
+		for _, c := range r {
+			row.AddCell().AddParagraph(c)
+		}
+	}
+
+	if _, err := doc.AddHeading("断更容错与服务端口规范", 2); err != nil {
+		return nil, err
+	}
+	doc.AddParagraph("每位签约作者每月享有 2 次请假条额度（可在作家后台提前申请免扣全勤）。番茄小说作者结算与激励发放核心服务默认监听端口为 `:8086`。")
+
+	var buf bytes.Buffer
+	if err := doc.Write(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
