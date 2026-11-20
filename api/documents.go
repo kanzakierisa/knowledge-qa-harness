@@ -20,10 +20,8 @@ import (
 const maxUploadBytes = 32 << 20 // 单次上传文件上限 32MB
 
 func (h *Handler) converter() ingest.Converter {
-	if h.Converter != nil {
-		return h.Converter
-	}
-	return ingest.NewConverterFromEnv()
+	_, _, conv, _ := h.getClients()
+	return conv
 }
 
 // ListProjects 查询全部项目空间。
@@ -37,17 +35,27 @@ func (h *Handler) ListProjects(c *gin.Context) {
 }
 
 type createProjectRequest struct {
-	Slug        string `json:"slug" binding:"required"`
+	Slug        string `json:"slug"`
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 }
 
-// CreateProject 创建新项目空间，严格校验 slug 格式。
+// CreateProject 创建新项目空间；未提供 slug 时自动生成合法唯一标识。
 func (h *Handler) CreateProject(c *gin.Context) {
 	var req createProjectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "slug 与 name 不能为空"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "项目名称不能为空"})
 		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "项目名称不能为空"})
+		return
+	}
+	if slug := strings.TrimSpace(req.Slug); slug != "" {
+		if err := store.ValidateProjectSlug(slug); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 	p, err := h.Store.CreateProject(req.Slug, req.Name, req.Description)
 	if err != nil {
@@ -265,8 +273,10 @@ func (h *Handler) UploadDocument(c *gin.Context) {
 		}
 	}
 
+	embedder, _, conv, _ := h.getClients()
+
 	// 2. 格式转标准 Markdown（遇扫描件/加密/乱码/不支持格式直接报 400）
-	markdown, sourceType, err := h.converter().Convert(in.filename, in.raw)
+	markdown, sourceType, err := conv.Convert(in.filename, in.raw)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -279,8 +289,8 @@ func (h *Handler) UploadDocument(c *gin.Context) {
 		return
 	}
 
-	if h.Embedder == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Embedder 未初始化"})
+	if embedder == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": errModelNotConfigured.Error(), "setup_required": true})
 		return
 	}
 
@@ -291,7 +301,7 @@ func (h *Handler) UploadDocument(c *gin.Context) {
 		if p.HeadingPath != "" {
 			embText = p.HeadingPath + "\n" + p.Content
 		}
-		vec, err := h.Embedder.Embed(embText)
+		vec, err := embedder.Embed(embText)
 		if err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{"error": "生成切片向量失败：" + err.Error()})
 			return
@@ -392,7 +402,8 @@ func (h *Handler) runDocRegression(items []store.AffectedEvalItem) *DocRegressio
 		}
 
 		summary.Checked++
-		if h.Embedder == nil || h.Chat == nil {
+		embedder, chat, _, _ := h.getClients()
+		if embedder == nil || chat == nil {
 			detail.Status = "error"
 			detail.Reason = "问答依赖未初始化，无法执行局部回归"
 			summary.Details = append(summary.Details, detail)
@@ -404,6 +415,7 @@ func (h *Handler) runDocRegression(items []store.AffectedEvalItem) *DocRegressio
 			Debug:       false,
 			ProjectSlug: q.ProjectSlug,
 			RecordGap:   false,
+			AllowHidden: true,
 		})
 		if err != nil {
 			detail.Status = "error"

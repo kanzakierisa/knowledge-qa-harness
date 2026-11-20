@@ -34,6 +34,7 @@ type Project struct {
 	Slug        string    `json:"slug"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
+	IsHidden    bool      `json:"is_hidden,omitempty"`
 	DocCount    int       `json:"doc_count"`
 	ChunkCount  int       `json:"chunk_count"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -138,6 +139,33 @@ func ValidateProjectSlug(slug string) error {
 	return nil
 }
 
+// BuildProjectSlug 根据项目名称自动生成合法的小写 ASCII 项目标识。
+func BuildProjectSlug(name string) string {
+	trimmed := strings.TrimSpace(name)
+	var b strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(trimmed) {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			lastDash = false
+		case r == '-' || r == '_' || r == '/' || unicode.IsSpace(r):
+			if b.Len() > 0 && !lastDash {
+				b.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+	base := strings.Trim(b.String(), "-")
+	if len(base) > 48 {
+		base = strings.TrimRight(base[:48], "-")
+	}
+	if ValidateProjectSlug(base) == nil {
+		return base
+	}
+	return "proj-" + SHA256Hex([]byte(trimmed))[:8]
+}
+
 // NormalizeDocLevel 校验并规范化 doc_level，空串默认 spec。
 func NormalizeDocLevel(level string) (string, error) {
 	v := strings.ToLower(strings.TrimSpace(level))
@@ -163,46 +191,95 @@ func ValidateDocStatus(status string) (string, error) {
 	}
 }
 
-// ListProjects 返回所有项目空间及其文档/切片计数。
+// ListProjects 返回所有对普通用户可见的项目空间及其文档/切片计数（过滤 is_hidden=1 隐藏评测夹具）。
 func (s *Store) ListProjects() ([]Project, error) {
-	rows, err := s.db.Query(`
-		SELECT p.id, p.slug, p.name, p.description, p.created_at,
+	return s.listProjectsFiltered(false)
+}
+
+// ListAllProjects 返回全部项目空间（含隐藏评测夹具，供脚本与内部管理使用）。
+func (s *Store) ListAllProjects() ([]Project, error) {
+	return s.listProjectsFiltered(true)
+}
+
+func (s *Store) listProjectsFiltered(includeHidden bool) ([]Project, error) {
+	where := "WHERE p.is_hidden = 0"
+	if includeHidden {
+		where = ""
+	}
+	query := fmt.Sprintf(`
+		SELECT p.id, p.slug, p.name, p.description, COALESCE(p.is_hidden, 0), p.created_at,
 		       COUNT(DISTINCT d.id) AS doc_count,
 		       COUNT(c.id) AS chunk_count
 		FROM projects p
 		LEFT JOIN documents d ON d.project_id = p.id
 		LEFT JOIN chunks c ON c.document_id = d.id
-		GROUP BY p.id, p.slug, p.name, p.description, p.created_at
-		ORDER BY p.id ASC`)
+		%s
+		GROUP BY p.id, p.slug, p.name, p.description, p.is_hidden, p.created_at
+		ORDER BY p.id ASC`, where)
+
+	hasHidden := true
+	rows, err := s.db.Query(query)
 	if err != nil {
-		return nil, err
+		if IsV1SchemaMissingError(err) {
+			hasHidden = false
+			rows, err = s.db.Query(`
+				SELECT p.id, p.slug, p.name, p.description, p.created_at,
+				       COUNT(DISTINCT d.id) AS doc_count,
+				       COUNT(c.id) AS chunk_count
+				FROM projects p
+				LEFT JOIN documents d ON d.project_id = p.id
+				LEFT JOIN chunks c ON c.document_id = d.id
+				GROUP BY p.id, p.slug, p.name, p.description, p.created_at
+				ORDER BY p.id ASC`)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer rows.Close()
 
 	out := make([]Project, 0)
 	for rows.Next() {
 		var p Project
-		if err := rows.Scan(&p.ID, &p.Slug, &p.Name, &p.Description, &p.CreatedAt, &p.DocCount, &p.ChunkCount); err != nil {
-			return nil, err
+		var scanErr error
+		if hasHidden {
+			scanErr = rows.Scan(&p.ID, &p.Slug, &p.Name, &p.Description, &p.IsHidden, &p.CreatedAt, &p.DocCount, &p.ChunkCount)
+		} else {
+			scanErr = rows.Scan(&p.ID, &p.Slug, &p.Name, &p.Description, &p.CreatedAt, &p.DocCount, &p.ChunkCount)
+		}
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
 }
 
-// GetProjectBySlug 按 slug 查询项目空间。
+// GetProjectBySlug 按 slug 查询项目空间（含隐藏项目，支持显式指定 project_slug 评测与查询）。
 func (s *Store) GetProjectBySlug(slug string) (Project, error) {
 	var p Project
 	err := s.db.QueryRow(`
-		SELECT p.id, p.slug, p.name, p.description, p.created_at,
+		SELECT p.id, p.slug, p.name, p.description, COALESCE(p.is_hidden, 0), p.created_at,
 		       COUNT(DISTINCT d.id) AS doc_count,
 		       COUNT(c.id) AS chunk_count
 		FROM projects p
 		LEFT JOIN documents d ON d.project_id = p.id
 		LEFT JOIN chunks c ON c.document_id = d.id
 		WHERE p.slug = ?
-		GROUP BY p.id, p.slug, p.name, p.description, p.created_at`, slug).
-		Scan(&p.ID, &p.Slug, &p.Name, &p.Description, &p.CreatedAt, &p.DocCount, &p.ChunkCount)
+		GROUP BY p.id, p.slug, p.name, p.description, p.is_hidden, p.created_at`, slug).
+		Scan(&p.ID, &p.Slug, &p.Name, &p.Description, &p.IsHidden, &p.CreatedAt, &p.DocCount, &p.ChunkCount)
+	if err != nil && IsV1SchemaMissingError(err) {
+		err = s.db.QueryRow(`
+			SELECT p.id, p.slug, p.name, p.description, p.created_at,
+			       COUNT(DISTINCT d.id) AS doc_count,
+			       COUNT(c.id) AS chunk_count
+			FROM projects p
+			LEFT JOIN documents d ON d.project_id = p.id
+			LEFT JOIN chunks c ON c.document_id = d.id
+			WHERE p.slug = ?
+			GROUP BY p.id, p.slug, p.name, p.description, p.created_at`, slug).
+			Scan(&p.ID, &p.Slug, &p.Name, &p.Description, &p.CreatedAt, &p.DocCount, &p.ChunkCount)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return Project{}, ErrProjectNotFound
 	}
@@ -212,8 +289,28 @@ func (s *Store) GetProjectBySlug(slug string) (Project, error) {
 	return p, nil
 }
 
-// CreateProject 创建新的项目空间。
-func (s *Store) CreateProject(slug, name, description string) (Project, error) {
+// SetProjectHidden 设置项目是否对常规前端与 auto 检索隐藏。
+func (s *Store) SetProjectHidden(slug string, hidden bool) error {
+	slug = strings.TrimSpace(slug)
+	if slug == "" {
+		return ErrProjectNotFound
+	}
+	res, err := s.db.Exec("UPDATE projects SET is_hidden = ? WHERE slug = ?", hidden, slug)
+	if err != nil {
+		return err
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		if _, err := s.GetProjectBySlug(slug); err != nil {
+			return err
+		}
+	}
+	s.invalidateVecCache()
+	return nil
+}
+
+// EnsureProject 幂等创建或更新项目展示名称、简介与可见性（供演示沙箱初始化脚本使用）。
+func (s *Store) EnsureProject(slug, name, description string, hidden bool) (Project, error) {
 	slug = strings.TrimSpace(slug)
 	name = strings.TrimSpace(name)
 	description = strings.TrimSpace(description)
@@ -223,7 +320,60 @@ func (s *Store) CreateProject(slug, name, description string) (Project, error) {
 	if name == "" {
 		return Project{}, errors.New("项目名称不能为空")
 	}
+	if _, err := s.db.Exec(`
+		INSERT INTO projects (slug, name, description, is_hidden)
+		VALUES (?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE
+			name = VALUES(name),
+			description = VALUES(description),
+			is_hidden = VALUES(is_hidden)`,
+		slug, name, description, hidden,
+	); err != nil {
+		return Project{}, err
+	}
+	s.invalidateVecCache()
+	return s.GetProjectBySlug(slug)
+}
 
+// CreateProject 创建新的项目空间；当 slug 为空时依据项目名称自动生成唯一标识。
+func (s *Store) CreateProject(slug, name, description string) (Project, error) {
+	slug = strings.TrimSpace(slug)
+	name = strings.TrimSpace(name)
+	description = strings.TrimSpace(description)
+	if name == "" {
+		return Project{}, errors.New("项目名称不能为空")
+	}
+
+	autoMode := slug == ""
+	if !autoMode {
+		if err := ValidateProjectSlug(slug); err != nil {
+			return Project{}, err
+		}
+		return s.insertProject(slug, name, description)
+	}
+
+	base := BuildProjectSlug(name)
+	for attempt := 0; attempt < 20; attempt++ {
+		cand := base
+		if attempt > 0 {
+			prefix := base
+			if len(prefix) > 54 {
+				prefix = strings.TrimRight(prefix[:54], "-")
+			}
+			cand = fmt.Sprintf("%s-%d", prefix, attempt+1)
+		}
+		p, err := s.insertProject(cand, name, description)
+		if err == nil {
+			return p, nil
+		}
+		if !errors.Is(err, ErrProjectExists) {
+			return Project{}, err
+		}
+	}
+	return Project{}, ErrProjectExists
+}
+
+func (s *Store) insertProject(slug, name, description string) (Project, error) {
 	res, err := s.db.Exec(
 		"INSERT INTO projects (slug, name, description) VALUES (?, ?, ?)",
 		slug, name, description,
@@ -248,15 +398,18 @@ func (s *Store) CreateProject(slug, name, description string) (Project, error) {
 	}, nil
 }
 
-// ListDocuments 按可选项目 slug 与状态列出文档及切片数。
+// ListDocuments 按可选项目 slug 与状态列出文档及切片数（未显式指定项目时自动过滤隐藏项目）。
 func (s *Store) ListDocuments(projectSlug, status string) ([]Document, error) {
 	var conds []string
 	var args []any
 
 	projectSlug = strings.TrimSpace(projectSlug)
+	filterHidden := false
 	if projectSlug != "" && projectSlug != "auto" && projectSlug != "all" {
 		conds = append(conds, "p.slug = ?")
 		args = append(args, projectSlug)
+	} else {
+		filterHidden = true
 	}
 	status = strings.TrimSpace(status)
 	if status != "" {
@@ -268,25 +421,33 @@ func (s *Store) ListDocuments(projectSlug, status string) ([]Document, error) {
 		args = append(args, st)
 	}
 
-	whereClause := ""
-	if len(conds) > 0 {
-		whereClause = "WHERE " + strings.Join(conds, " AND ")
+	buildQuery := func(withHidden bool) string {
+		allConds := append([]string(nil), conds...)
+		if withHidden && filterHidden {
+			allConds = append(allConds, "p.is_hidden = 0")
+		}
+		whereClause := ""
+		if len(allConds) > 0 {
+			whereClause = "WHERE " + strings.Join(allConds, " AND ")
+		}
+		return fmt.Sprintf(`
+			SELECT d.id, d.project_id, p.slug, p.name, d.title, d.filename, d.source_type,
+			       d.content_hash, d.doc_level, d.status, d.replaced_by_doc_id, d.owner,
+			       d.created_at, d.updated_at, COUNT(c.id) AS chunk_count
+			FROM documents d
+			JOIN projects p ON p.id = d.project_id
+			LEFT JOIN chunks c ON c.document_id = d.id
+			%s
+			GROUP BY d.id, d.project_id, p.slug, p.name, d.title, d.filename, d.source_type,
+			         d.content_hash, d.doc_level, d.status, d.replaced_by_doc_id, d.owner,
+			         d.created_at, d.updated_at
+			ORDER BY d.updated_at DESC, d.id DESC`, whereClause)
 	}
 
-	query := fmt.Sprintf(`
-		SELECT d.id, d.project_id, p.slug, p.name, d.title, d.filename, d.source_type,
-		       d.content_hash, d.doc_level, d.status, d.replaced_by_doc_id, d.owner,
-		       d.created_at, d.updated_at, COUNT(c.id) AS chunk_count
-		FROM documents d
-		JOIN projects p ON p.id = d.project_id
-		LEFT JOIN chunks c ON c.document_id = d.id
-		%s
-		GROUP BY d.id, d.project_id, p.slug, p.name, d.title, d.filename, d.source_type,
-		         d.content_hash, d.doc_level, d.status, d.replaced_by_doc_id, d.owner,
-		         d.created_at, d.updated_at
-		ORDER BY d.updated_at DESC, d.id DESC`, whereClause)
-
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.Query(buildQuery(true), args...)
+	if err != nil && filterHidden && IsV1SchemaMissingError(err) {
+		rows, err = s.db.Query(buildQuery(false), args...)
+	}
 	if err != nil {
 		return nil, err
 	}

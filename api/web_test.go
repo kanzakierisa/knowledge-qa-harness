@@ -38,12 +38,14 @@ func TestWebIndexServedAndSelfContained(t *testing.T) {
 
 	html := rec.Body.String()
 	for _, want := range []string{
-		"Go 知识问答 · 可溯源 Demo",
+		"可溯源知识问答工作台",
 		"文档中没有依据",
 		"/api/ask",
-		"/api/chunks",
 		"/api/projects",
 		"/api/documents/upload",
+		"/api/sessions",
+		"/api/stats/online",
+		"/api/setup",
 		"智能问答",
 		"资料库治理",
 		"盲区与反馈",
@@ -51,6 +53,7 @@ func TestWebIndexServedAndSelfContained(t *testing.T) {
 		"/api/feedback",
 		"evidence-hl",
 		"这道回答有帮助吗？",
+		"复制可信引用",
 		"Doc CI/CD 局部回归体检单",
 		"运行 feedback 活评测",
 		"project-bar",
@@ -58,7 +61,12 @@ func TestWebIndexServedAndSelfContained(t *testing.T) {
 		"ambiguity-box",
 		"warnings-banner",
 		"已废弃",
-		"2026-11-17",
+		"当前会话",
+		"全部提问",
+		"task-list",
+		"task-hover-card",
+		"task-context-menu",
+		"setup-modal",
 		"COLLAPSE_THRESHOLD = 300",
 		"workspace-3col",
 		"按主题查询",
@@ -71,6 +79,13 @@ func TestWebIndexServedAndSelfContained(t *testing.T) {
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("index.html missing %q", want)
+		}
+	}
+
+	// 确保已清理全局底边栏、静态评测时间及硬编码测试项目兜底
+	for _, removed := range []string{"meta-corner", "2026-11-17", "chunk-status", "go-gin"} {
+		if strings.Contains(html, removed) {
+			t.Errorf("index.html must not contain legacy footer/hardcoded string %q", removed)
 		}
 	}
 

@@ -72,6 +72,7 @@ type Chunk struct {
 	ProjectID       int64
 	ProjectSlug     string
 	ProjectName     string
+	ProjectHidden   bool `json:"-"`
 	DocTitle        string
 	DocLevel        string // spec | rfc | note
 	DocStatus       string // active | deprecated
@@ -168,9 +169,10 @@ func (s *Store) AllChunks() ([]Chunk, error) {
 // AllChunksWithMeta 读出全部已算好向量的切片及所属项目与文档治理元数据；
 // 若运行在未执行 002_v2_schema.sql 的 V1 最小库或 V1 单测假驱动上，自动回退到 AllChunks()。
 func (s *Store) AllChunksWithMeta() ([]Chunk, error) {
+	hasHiddenCol := true
 	rows, err := s.db.Query(`
 		SELECT c.id, c.document_id, c.heading_path, c.content, c.embedding,
-		       d.project_id, p.slug, p.name, d.title, d.doc_level, d.status,
+		       d.project_id, p.slug, p.name, COALESCE(p.is_hidden, 0), d.title, d.doc_level, d.status,
 		       d.replaced_by_doc_id, COALESCE(rd.title, ''), d.owner
 		FROM chunks c
 		JOIN documents d ON d.id = c.document_id
@@ -179,9 +181,25 @@ func (s *Store) AllChunksWithMeta() ([]Chunk, error) {
 		WHERE c.embedding IS NOT NULL AND c.embedding != ''`)
 	if err != nil {
 		if IsV1SchemaMissingError(err) {
-			return s.AllChunks()
+			hasHiddenCol = false
+			rows, err = s.db.Query(`
+				SELECT c.id, c.document_id, c.heading_path, c.content, c.embedding,
+				       d.project_id, p.slug, p.name, d.title, d.doc_level, d.status,
+				       d.replaced_by_doc_id, COALESCE(rd.title, ''), d.owner
+				FROM chunks c
+				JOIN documents d ON d.id = c.document_id
+				JOIN projects p ON p.id = d.project_id
+				LEFT JOIN documents rd ON rd.id = d.replaced_by_doc_id
+				WHERE c.embedding IS NOT NULL AND c.embedding != ''`)
+			if err != nil {
+				if IsV1SchemaMissingError(err) {
+					return s.AllChunks()
+				}
+				return nil, err
+			}
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
 	defer rows.Close()
 
@@ -197,13 +215,23 @@ func (s *Store) AllChunksWithMeta() ([]Chunk, error) {
 	for rows.Next() {
 		var c Chunk
 		var replaced sql.NullInt64
-		if err := rows.Scan(
-			&c.ID, &c.DocumentID, &c.HeadingPath, &c.Content, &c.Embedding,
-			&c.ProjectID, &c.ProjectSlug, &c.ProjectName, &c.DocTitle, &c.DocLevel, &c.DocStatus,
-			&replaced, &c.ReplacedByTitle, &c.DocOwner,
-		); err != nil {
+		var scanErr error
+		if hasHiddenCol {
+			scanErr = rows.Scan(
+				&c.ID, &c.DocumentID, &c.HeadingPath, &c.Content, &c.Embedding,
+				&c.ProjectID, &c.ProjectSlug, &c.ProjectName, &c.ProjectHidden, &c.DocTitle, &c.DocLevel, &c.DocStatus,
+				&replaced, &c.ReplacedByTitle, &c.DocOwner,
+			)
+		} else {
+			scanErr = rows.Scan(
+				&c.ID, &c.DocumentID, &c.HeadingPath, &c.Content, &c.Embedding,
+				&c.ProjectID, &c.ProjectSlug, &c.ProjectName, &c.DocTitle, &c.DocLevel, &c.DocStatus,
+				&replaced, &c.ReplacedByTitle, &c.DocOwner,
+			)
+		}
+		if scanErr != nil {
 			s.vecMu.RUnlock()
-			return nil, err
+			return nil, scanErr
 		}
 		if replaced.Valid {
 			v := replaced.Int64
@@ -243,10 +271,17 @@ func (s *Store) ClearAll() error {
 	return nil
 }
 
-// CountChunks 返回切片总数（健康检查用）。
+// CountChunks 返回可见项目（非隐藏）的切片总数（健康检查用）。
 func (s *Store) CountChunks() (int, error) {
 	var n int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(*)
+		FROM chunks c
+		JOIN documents d ON d.id = c.document_id
+		JOIN projects p ON p.id = d.project_id
+		WHERE p.is_hidden = 0`).Scan(&n)
+	if err != nil && IsV1SchemaMissingError(err) {
+		err = s.db.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&n)
+	}
 	return n, err
 }
 

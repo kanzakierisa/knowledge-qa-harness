@@ -35,6 +35,16 @@ func TestValidateProjectSlugAndEnums(t *testing.T) {
 	if _, err := ValidateDocStatus("archived"); err == nil {
 		t.Fatal("invalid doc status should fail")
 	}
+
+	if got := BuildProjectSlug("Team Alpha / v2"); got != "team-alpha-v2" {
+		t.Fatalf("BuildProjectSlug ASCII got %q want team-alpha-v2", got)
+	}
+	if got := BuildProjectSlug("活动运营项目"); ValidateProjectSlug(got) != nil || !strings.HasPrefix(got, "proj-") {
+		t.Fatalf("BuildProjectSlug Chinese got %q want valid proj-* slug", got)
+	}
+	if got := BuildProjectSlug("auto"); !strings.HasPrefix(got, "proj-") {
+		t.Fatalf("BuildProjectSlug reserved word got %q want proj-*", got)
+	}
 }
 
 // --- 纯内存假 SQL 驱动验证 AllChunks 向量缓存与失效逻辑 ---
@@ -48,10 +58,10 @@ func (d fakeVecDriver) Open(string) (driver.Conn, error) { return fakeVecConn{qu
 func (c fakeVecConnector) Connect(context.Context) (driver.Conn, error) {
 	return fakeVecConn{queries: c.queries}, nil
 }
-func (c fakeVecConnector) Driver() driver.Driver           { return fakeVecDriver{queries: c.queries} }
-func (fakeVecConn) Prepare(string) (driver.Stmt, error)    { return nil, errors.New("unused") }
-func (fakeVecConn) Close() error                           { return nil }
-func (fakeVecConn) Begin() (driver.Tx, error)              { return nil, errors.New("unused") }
+func (c fakeVecConnector) Driver() driver.Driver        { return fakeVecDriver{queries: c.queries} }
+func (fakeVecConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("unused") }
+func (fakeVecConn) Close() error                        { return nil }
+func (fakeVecConn) Begin() (driver.Tx, error)           { return nil, errors.New("unused") }
 func (c fakeVecConn) QueryContext(context.Context, string, []driver.NamedValue) (driver.Rows, error) {
 	*c.queries++
 	return &fakeVecRows{}, nil
@@ -106,6 +116,45 @@ func TestStoreAllChunksVectorCache(t *testing.T) {
 	st.vecMu.RUnlock()
 	if afterClear != nil {
 		t.Fatal("expected vecCache to be nil after invalidation")
+	}
+}
+
+type fakeProjDriver struct{ seen *[]string }
+type fakeProjConnector struct{ seen *[]string }
+type fakeProjConn struct{ seen *[]string }
+type fakeProjResult struct{ id int64 }
+
+func (d fakeProjDriver) Open(string) (driver.Conn, error) { return fakeProjConn{seen: d.seen}, nil }
+func (c fakeProjConnector) Connect(context.Context) (driver.Conn, error) {
+	return fakeProjConn{seen: c.seen}, nil
+}
+func (c fakeProjConnector) Driver() driver.Driver        { return fakeProjDriver{seen: c.seen} }
+func (fakeProjConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("unused") }
+func (fakeProjConn) Close() error                        { return nil }
+func (fakeProjConn) Begin() (driver.Tx, error)           { return nil, errors.New("unused") }
+func (c fakeProjConn) ExecContext(_ context.Context, _ string, args []driver.NamedValue) (driver.Result, error) {
+	slug, _ := args[0].Value.(string)
+	*c.seen = append(*c.seen, slug)
+	if len(*c.seen) == 1 {
+		return nil, &mysql.MySQLError{Number: 1062, Message: "Duplicate entry"}
+	}
+	return fakeProjResult{id: int64(len(*c.seen))}, nil
+}
+func (r fakeProjResult) LastInsertId() (int64, error) { return r.id, nil }
+func (r fakeProjResult) RowsAffected() (int64, error) { return 1, nil }
+
+func TestCreateProjectAutoSlugAndCollisionRetry(t *testing.T) {
+	seen := make([]string, 0)
+	db := sql.OpenDB(fakeProjConnector{seen: &seen})
+	defer db.Close()
+
+	st := &Store{db: db}
+	p, err := st.CreateProject("", "Team Alpha", "测试自动生成")
+	if err != nil {
+		t.Fatalf("CreateProject auto slug failed: %v", err)
+	}
+	if len(seen) != 2 || seen[0] != "team-alpha" || seen[1] != "team-alpha-2" || p.Slug != "team-alpha-2" {
+		t.Fatalf("unexpected retry sequence: seen=%v got=%+v", seen, p)
 	}
 }
 

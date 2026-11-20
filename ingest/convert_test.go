@@ -248,3 +248,38 @@ func TestConvertUnsupportedAndEngineErrors(t *testing.T) {
 		t.Log("skip")
 	}
 }
+
+func TestConvertCorpusV2Formats(t *testing.T) {
+	conv := NewConverter(ConvertOptions{Engine: "native"})
+	cases := []struct {
+		relPath  string
+		wantType string
+		wantText string
+	}{
+		{"../corpus_v2/shared/team-engineering-norms.md", "md", "40001"},
+		{"../corpus_v2/content-promo/promo-reward-and-port-v1.md", "md", "T+15"},
+		{"../corpus_v2/content-promo/promo-reward-and-approval-v2.md", "md", "8082"},
+		{"../corpus_v2/content-promo/winter-creator-incentive-handbook.docx", "docx", "冬季创作激励活动执行手册"},
+		{"../corpus_v2/content-promo/promo-launch-schedule-budget.xlsx", "xlsx", "上线排期表"},
+		{"../corpus_v2/content-promo/promo-risk-control-sla.pdf", "pdf", "42901"},
+	}
+	for _, tc := range cases {
+		raw, err := os.ReadFile(tc.relPath)
+		if err != nil {
+			t.Fatalf("read %s failed: %v", tc.relPath, err)
+		}
+		md, srcType, err := conv.Convert(filepath.Base(tc.relPath), raw)
+		if err != nil {
+			t.Fatalf("Convert(%s) failed: %v", tc.relPath, err)
+		}
+		if srcType != tc.wantType {
+			t.Fatalf("%s sourceType=%q want %q", tc.relPath, srcType, tc.wantType)
+		}
+		if !strings.Contains(md, tc.wantText) {
+			t.Fatalf("%s converted markdown missing %q:\n%s", tc.relPath, tc.wantText, md)
+		}
+		if pieces := SplitMarkdownV3(md); len(pieces) == 0 {
+			t.Fatalf("%s SplitMarkdownV3 returned 0 chunks", tc.relPath)
+		}
+	}
+}

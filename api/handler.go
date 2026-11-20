@@ -2,6 +2,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -32,12 +33,15 @@ const (
 
 // Handler 聚合问答链路与资料库治理所需依赖。
 type Handler struct {
-	Store     *store.Store
-	Embedder  *ingest.Embedder
-	Chat      *generate.ChatClient
-	Converter ingest.Converter  // 可选：nil 时按环境变量初始化默认转换器
-	Reranker  retrieve.Reranker // 可选：nil 时跳过 Cross-Encoder 重排，使用纯融合排序
-	evalMu    sync.Mutex        // 同一时刻只允许一批评测，冲突请求返回 409
+	Store        *store.Store
+	Embedder     *ingest.Embedder
+	Chat         *generate.ChatClient
+	Converter    ingest.Converter  // 可选：nil 时按环境变量初始化默认转换器
+	Reranker     retrieve.Reranker // 可选：nil 时跳过 Cross-Encoder 重排，使用纯融合排序
+	SetupEnabled bool              // 阶段 13：显式开启 --setup-ui / ALLOW_WEB_SETUP=true 时允许内存态配置
+	clientMu     sync.RWMutex
+	setupMeta    runtimeSetupMeta
+	evalMu       sync.Mutex // 同一时刻只允许一批评测，冲突请求返回 409
 }
 
 // NewRouter 装配路由。
@@ -45,8 +49,15 @@ func NewRouter(h *Handler) *gin.Engine {
 	r := gin.Default()
 	r.GET("/", h.Index)
 	r.HEAD("/", h.Index)
+	r.GET("/api/setup/status", h.GetSetupStatus)
+	r.POST("/api/setup", h.ApplySetup)
 	r.POST("/api/ask", h.Ask)
 	r.GET("/api/chunks", h.Chunks)
+	r.GET("/api/sessions", h.ListSessions)
+	r.GET("/api/sessions/:id", h.GetSession)
+	r.PATCH("/api/sessions/:id", h.PatchSession)
+	r.DELETE("/api/sessions/:id", h.DeleteSession)
+	r.GET("/api/stats/online", h.OnlineStats)
 	r.GET("/api/projects", h.ListProjects)
 	r.POST("/api/projects", h.CreateProject)
 	r.GET("/api/documents", h.ListDocuments)
@@ -81,6 +92,8 @@ type askRequest struct {
 	ProjectSlug string  `json:"project_slug"` // 可选："" 或 "auto" 为自动路由，否则强隔离为 target + shared
 	DocumentIDs []int64 `json:"document_ids"` // 可选：非空时仅在指定材料（文档 ID）内检索
 	Compare     bool    `json:"compare"`      // 可选：true 且命中跨项目歧义时对候选项目逐一生成对照回答
+	SessionID   *int64  `json:"session_id"`   // 可选：所属会话 ID，空时自动创建持久化新会话
+	ScopeLabel  string  `json:"scope_label"`  // 可选：前端展示的范围标签
 }
 
 type citation struct {
@@ -147,11 +160,14 @@ type comparisonResult struct {
 }
 
 type askResponse struct {
+	SessionID         int64              `json:"session_id,omitempty"`
+	TurnID            int64              `json:"turn_id,omitempty"`
 	Answer            string             `json:"answer"`
 	Citations         []citation         `json:"citations"`
 	RetrievedChunkIDs []int64            `json:"retrieved_chunk_ids,omitempty"`
 	Refused           bool               `json:"refused"`
 	Retried           bool               `json:"retried"` // 阶段 4：引用校验失败后是否重试过
+	CitationOK        *bool              `json:"citation_ok,omitempty"`
 	ProjectResolved   string             `json:"project_resolved,omitempty"`
 	Ambiguity         *ambiguityInfo     `json:"ambiguity,omitempty"`
 	Warnings          []askWarning       `json:"warnings,omitempty"`
@@ -165,6 +181,7 @@ type askOptions struct {
 	DocumentIDs []int64
 	Compare     bool
 	RecordGap   bool // 仅线上 POST /api/ask 为 true；评测跑批与 Doc CI/CD 必须为 false
+	AllowHidden bool // 仅离线评测或显式指定 project_slug 时允许命中隐藏项目
 }
 
 // Ask 校验 HTTP 入参后调用内部问答函数；评测也复用该内部函数。
@@ -174,6 +191,17 @@ func (h *Handler) Ask(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "question 不能为空"})
 		return
 	}
+	if req.SessionID != nil && *req.SessionID > 0 && h.Store != nil {
+		if err := h.Store.EnsureSessionExists(*req.SessionID); err != nil {
+			if errors.Is(err, store.ErrSessionNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
 	resp, _, err := h.answerQuestionWithOptions(req.Question, askOptions{
 		Debug:       req.Debug,
 		ProjectSlug: req.ProjectSlug,
@@ -182,6 +210,10 @@ func (h *Handler) Ask(c *gin.Context) {
 		RecordGap:   true,
 	})
 	if err != nil {
+		if errors.Is(err, errModelNotConfigured) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error(), "setup_required": true})
+			return
+		}
 		if errors.Is(err, store.ErrProjectNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
@@ -189,7 +221,130 @@ func (h *Handler) Ask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	resp.CitationOK = computeAskCitationOK(resp)
+	if err := h.persistOnlineTurn(req, &resp); err != nil {
+		if errors.Is(err, store.ErrSessionNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func computeAskCitationOK(resp askResponse) *bool {
+	if resp.Refused || resp.ProjectResolved == "ambiguous" {
+		return nil
+	}
+	if resp.ProjectResolved == "compare" || len(resp.Comparisons) > 0 {
+		hasAnswered := false
+		allOK := true
+		for _, comp := range resp.Comparisons {
+			if comp.Refused {
+				continue
+			}
+			hasAnswered = true
+			ok, _ := generate.ValidateCitations(comp.Answer, len(comp.Citations))
+			if !ok {
+				allOK = false
+			}
+		}
+		if !hasAnswered {
+			return nil
+		}
+		return &allOK
+	}
+	ok, _ := generate.ValidateCitations(resp.Answer, len(resp.Citations))
+	return &ok
+}
+
+func (h *Handler) persistOnlineTurn(req askRequest, resp *askResponse) error {
+	if h.Store == nil {
+		return nil
+	}
+	citsJSON, _ := json.Marshal(resp.Citations)
+	warnsJSON, _ := json.Marshal(resp.Warnings)
+	cmpJSON, _ := json.Marshal(resp.Comparisons)
+	ambJSON, _ := json.Marshal(resp.Ambiguity)
+
+	docIDs := normalizePositiveIDs(req.DocumentIDs)
+	scopeMode := "topic"
+	if len(docIDs) > 0 {
+		scopeMode = "material"
+	}
+	projSlug := strings.TrimSpace(req.ProjectSlug)
+	if projSlug == "auto" || projSlug == "all" {
+		projSlug = ""
+	}
+	scopeLabel := strings.TrimSpace(req.ScopeLabel)
+	if scopeLabel == "" {
+		switch {
+		case req.Compare:
+			scopeLabel = "多项目并排对照"
+		case scopeMode == "material":
+			scopeLabel = fmt.Sprintf("指定材料（%d 篇）", len(docIDs))
+		case projSlug == "":
+			scopeLabel = "自动识别"
+		default:
+			scopeLabel = projSlug
+		}
+	}
+
+	sp := store.CreateSessionParams{
+		ProjectSlug: projSlug,
+		ScopeMode:   scopeMode,
+		DocumentIDs: docIDs,
+	}
+	tp := store.CreateTurnParams{
+		Question:          req.Question,
+		ProjectSlug:       store.NormalizeGapProjectSlug(firstNonEmptyString(projSlug, resp.ProjectResolved)),
+		ScopeLabel:        scopeLabel,
+		Answer:            resp.Answer,
+		CitationsJSON:     string(citsJSON),
+		RetrievedChunkIDs: resp.RetrievedChunkIDs,
+		WarningsJSON:      string(warnsJSON),
+		ComparisonsJSON:   string(cmpJSON),
+		AmbiguityJSON:     string(ambJSON),
+		ProjectResolved:   resp.ProjectResolved,
+		Refused:           resp.Refused,
+		Retried:           resp.Retried,
+		CitationOK:        resp.CitationOK,
+	}
+
+	if req.SessionID != nil && *req.SessionID > 0 {
+		turnID, err := h.Store.AppendTurnToSession(*req.SessionID, sp, tp)
+		if err != nil {
+			if store.IsV1SchemaMissingError(err) {
+				return nil
+			}
+			return err
+		}
+		resp.SessionID = *req.SessionID
+		resp.TurnID = turnID
+		return nil
+	}
+
+	sessID, turnID, err := h.Store.CreateSessionAndTurn(sp, tp)
+	if err != nil {
+		if !store.IsV1SchemaMissingError(err) {
+			log.Printf("[session] 保存会话轮次失败（已降级忽略）：%v", err)
+		}
+		return nil
+	}
+	resp.SessionID = sessID
+	resp.TurnID = turnID
+	return nil
+}
+
+func firstNonEmptyString(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // answerQuestion 保持 V1 内部签名兼容（供 eval 等复用，默认自动路由）。
@@ -231,10 +386,25 @@ func resolveProjectFromChunks(chunks []store.Chunk, fallback string) string {
 	return resolved
 }
 
+func filterVisibleChunks(chunks []store.Chunk) []store.Chunk {
+	out := make([]store.Chunk, 0, len(chunks))
+	for _, ch := range chunks {
+		if !ch.ProjectHidden {
+			out = append(out, ch)
+		}
+	}
+	return out
+}
+
 // answerQuestionWithOptions 走完整多项目问答链路：
 // 项目隔离校验 → 读切片与问题向量化 → 混合检索与治理加权 → 跨项目歧义拦截 → 阈值拒答 →
 // LLM 生成与句级引用校验 → 废弃文档警告组装。
 func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (askResponse, []retrieve.MergedChunk, error) {
+	embedder, chat, _, reranker := h.getClients()
+	if embedder == nil || chat == nil {
+		return askResponse{}, nil, errModelNotConfigured
+	}
+
 	reqSlug := strings.TrimSpace(opts.ProjectSlug)
 	isAuto := reqSlug == "" || reqSlug == "auto" || reqSlug == "all"
 	docIDs := normalizePositiveIDs(opts.DocumentIDs)
@@ -254,6 +424,9 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 	if err != nil {
 		return askResponse{}, nil, err
 	}
+	if isAuto && !opts.AllowHidden {
+		chunks = filterVisibleChunks(chunks)
+	}
 
 	if len(docIDs) > 0 {
 		scoped := retrieve.FilterChunksByProject(chunks, reqSlug)
@@ -268,7 +441,7 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 				ProjectResolved: resolveProjectFromChunks(scoped, reqSlug),
 			}, nil, nil
 		}
-		qVec, err := h.Embedder.Embed(question)
+		qVec, err := embedder.Embed(question)
 		if err != nil {
 			return askResponse{}, nil, err
 		}
@@ -278,10 +451,10 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		})
 		resolved := resolveProjectFromChunks(scoped, reqSlug)
 		if len(scoredDocs) == 0 || scoredDocs[0].Final < refuseThreshold {
-			return h.finalizeAnswer(question, truncateMerged(scoredDocs, retrieve.TopN), resolved, opts, false)
+			return h.finalizeAnswer(chat, question, truncateMerged(scoredDocs, retrieve.TopN), resolved, opts, false)
 		}
-		top := retrieve.RerankAndSelect(question, scoredDocs, h.Reranker, retrieve.TopN, refuseThreshold)
-		return h.finalizeAnswer(question, top, resolved, opts, true)
+		top := retrieve.RerankAndSelect(question, scoredDocs, reranker, retrieve.TopN, refuseThreshold)
+		return h.finalizeAnswer(chat, question, top, resolved, opts, true)
 	}
 
 	if !isAuto {
@@ -305,7 +478,7 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		}, nil, nil
 	}
 
-	qVec, err := h.Embedder.Embed(question)
+	qVec, err := embedder.Embed(question)
 	if err != nil {
 		return askResponse{}, nil, err
 	}
@@ -313,16 +486,16 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 	if !isAuto {
 		scoredProj := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{ProjectSlug: reqSlug})
 		if len(scoredProj) == 0 || scoredProj[0].Final < refuseThreshold {
-			return h.finalizeAnswer(question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts, false)
+			return h.finalizeAnswer(chat, question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts, false)
 		}
-		top := retrieve.RerankAndSelect(question, scoredProj, h.Reranker, retrieve.TopN, refuseThreshold)
-		return h.finalizeAnswer(question, top, reqSlug, opts, true)
+		top := retrieve.RerankAndSelect(question, scoredProj, reranker, retrieve.TopN, refuseThreshold)
+		return h.finalizeAnswer(chat, question, top, reqSlug, opts, true)
 	}
 
 	scored := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{})
 	if len(scored) == 0 || scored[0].Final < refuseThreshold {
 		top := truncateMerged(scored, retrieve.TopN)
-		return h.finalizeAnswer(question, top, "", opts, false)
+		return h.finalizeAnswer(chat, question, top, "", opts, false)
 	}
 
 	amb := detectCrossProjectAmbiguity(scored, refuseThreshold, retrieve.TopN)
@@ -334,12 +507,12 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 				var candTop []retrieve.MergedChunk
 				candPassed := len(candScored) > 0 && candScored[0].Final >= refuseThreshold
 				if candPassed {
-					candTop = retrieve.RerankAndSelect(question, candScored, h.Reranker, retrieve.TopN, refuseThreshold)
+					candTop = retrieve.RerankAndSelect(question, candScored, reranker, retrieve.TopN, refuseThreshold)
 				} else {
 					candTop = truncateMerged(candScored, retrieve.TopN)
 				}
 				compareOpts := askOptions{Debug: opts.Debug, ProjectSlug: cand.ProjectSlug, RecordGap: false}
-				candResp, _, err := h.finalizeAnswer(question, candTop, cand.ProjectSlug, compareOpts, candPassed)
+				candResp, _, err := h.finalizeAnswer(chat, question, candTop, cand.ProjectSlug, compareOpts, candPassed)
 				if err != nil {
 					return askResponse{}, amb.FilteredTop, err
 				}
@@ -388,13 +561,13 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		}
 	}
 	if len(scopedScored) == 0 || scopedScored[0].Final < refuseThreshold {
-		return h.finalizeAnswer(question, truncateMerged(scopedScored, retrieve.TopN), amb.ProjectResolved, opts, false)
+		return h.finalizeAnswer(chat, question, truncateMerged(scopedScored, retrieve.TopN), amb.ProjectResolved, opts, false)
 	}
-	filteredTop := retrieve.RerankAndSelect(question, scopedScored, h.Reranker, retrieve.TopN, refuseThreshold)
-	return h.finalizeAnswer(question, filteredTop, amb.ProjectResolved, opts, true)
+	filteredTop := retrieve.RerankAndSelect(question, scopedScored, reranker, retrieve.TopN, refuseThreshold)
+	return h.finalizeAnswer(chat, question, filteredTop, amb.ProjectResolved, opts, true)
 }
 
-func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, projectResolved string, opts askOptions, thresholdPassed bool) (askResponse, []retrieve.MergedChunk, error) {
+func (h *Handler) finalizeAnswer(chat *generate.ChatClient, question string, top []retrieve.MergedChunk, projectResolved string, opts askOptions, thresholdPassed bool) (askResponse, []retrieve.MergedChunk, error) {
 	retrievedIDs := chunkIDsFromMerged(top)
 	if len(top) == 0 || (!thresholdPassed && top[0].Final < refuseThreshold) {
 		log.Printf("[ask] 阈值拒答（Top1 融合分 %.4f < %.2f），未调用 LLM：%q",
@@ -410,7 +583,7 @@ func (h *Handler) finalizeAnswer(question string, top []retrieve.MergedChunk, pr
 		}, top, nil
 	}
 
-	answer, retried, ok, err := h.Chat.GenerateAnswer(question, top)
+	answer, retried, ok, err := chat.GenerateAnswer(question, top)
 	if err != nil {
 		return askResponse{}, top, err
 	}

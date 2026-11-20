@@ -80,6 +80,7 @@ type EvalFeedback struct {
 
 // CreateFeedbackParams 描述用户反馈提交入参。
 type CreateFeedbackParams struct {
+	TurnID            *int64
 	ProjectSlug       string
 	Question          string
 	RetrievedChunkIDs []int64
@@ -214,6 +215,46 @@ func (s *Store) RecordKnowledgeGap(params RecordGapParams) error {
 		proj, q, normKey, reason, params.Top1Final, nearestID, heading,
 	)
 	return err
+}
+
+// EnsureDemoKnowledgeGap 幂等插入示例盲区（仅当同项目同问法不存在时写入，不重复累加 hit_count）。
+func (s *Store) EnsureDemoKnowledgeGap(params RecordGapParams, initialHitCount int) error {
+	q := strings.TrimSpace(params.Question)
+	if q == "" {
+		return errors.New("question 不能为空")
+	}
+	if initialHitCount <= 0 {
+		initialHitCount = 1
+	}
+	_, normKey := NormalizeGapQuestion(q)
+	proj := truncateRunes(NormalizeGapProjectSlug(params.ProjectSlug), 64)
+	reason := truncateRunes(strings.TrimSpace(params.RefuseReason), 64)
+	if reason == "" {
+		reason = "threshold"
+	}
+	heading := truncateRunes(strings.TrimSpace(params.NearestHeading), 500)
+
+	var nearestID any
+	if params.NearestChunkID != nil && *params.NearestChunkID > 0 {
+		nearestID = *params.NearestChunkID
+	}
+
+	_, err := s.db.Exec(`
+		INSERT IGNORE INTO knowledge_gaps
+			(project_slug, question, normalized_key, refuse_reason, top1_final, nearest_chunk_id, nearest_heading, hit_count, status, last_asked_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', CURRENT_TIMESTAMP)`,
+		proj, q, normKey, reason, params.Top1Final, nearestID, heading, initialHitCount,
+	)
+	return err
+}
+
+// DeleteKnowledgeGapByQuestion 按精确问题文本删除测试遗留盲区记录。
+func (s *Store) DeleteKnowledgeGapByQuestion(question string) (int64, error) {
+	res, err := s.db.Exec("DELETE FROM knowledge_gaps WHERE question = ?", strings.TrimSpace(question))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // ListKnowledgeGaps 按 hit_count DESC, last_asked_at DESC 列出盲区记录，附带近似文档与负责人线索。
@@ -352,7 +393,7 @@ func (s *Store) UpdateKnowledgeGapStatus(id int64, status string) (KnowledgeGap,
 	return s.GetKnowledgeGap(id)
 }
 
-// CreateFeedback 保存用户对问答结果的 👍 / 👎 反馈。
+// CreateFeedback 保存用户对问答结果的 👍 / 👎 反馈，并在提供 turn_id 时同步更新对应会话轮次的反馈标记。
 func (s *Store) CreateFeedback(params CreateFeedbackParams) (EvalFeedback, error) {
 	q := strings.TrimSpace(params.Question)
 	if q == "" {
@@ -373,7 +414,13 @@ func (s *Store) CreateFeedback(params CreateFeedbackParams) (EvalFeedback, error
 	}
 	idsJSON := marshalCappedChunkIDs(ids, 500)
 
-	res, err := s.db.Exec(`
+	tx, err := s.db.Begin()
+	if err != nil {
+		return EvalFeedback{}, err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(`
 		INSERT INTO eval_feedback
 			(project_slug, question, retrieved_chunk_ids, answer, refused, vote, comment)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -384,6 +431,14 @@ func (s *Store) CreateFeedback(params CreateFeedbackParams) (EvalFeedback, error
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
+		return EvalFeedback{}, err
+	}
+	if params.TurnID != nil && *params.TurnID > 0 {
+		if _, err := tx.Exec("UPDATE qa_turns SET feedback_vote = ? WHERE id = ?", vote, *params.TurnID); err != nil && !IsV1SchemaMissingError(err) {
+			return EvalFeedback{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		return EvalFeedback{}, err
 	}
 	return s.GetFeedback(id)

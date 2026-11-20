@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+!.env.example
+*.exe
+*.test
+*.log
+_backup
+setenv.*
+start.*
+docs

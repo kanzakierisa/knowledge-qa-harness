@@ -14,9 +14,9 @@ type ChunkPiece struct {
 
 // 切片器 v2/v3 的长度阈值（按字符数，与 MySQL CHAR_LENGTH 一致）。
 const (
-	maxChunkChars   = 800 // 超过则按空行/表格行/句末边界二次切分
-	minChunkChars   = 100 // 不足且与下一段同父标题时合并
-	v3OverlapChars  = 80  // v3 同一标题二次拆分出的相邻文本子段末尾重叠字符数
+	maxChunkChars  = 800 // 超过则按空行/表格行/句末边界二次切分
+	minChunkChars  = 100 // 不足且与下一段同父标题时合并
+	v3OverlapChars = 80  // v3 同一标题二次拆分出的相邻文本子段末尾重叠字符数
 )
 
 // SplitMarkdown 是切片器 v1：只按 # / ## / ### 标题切，代码块不特殊处理。

@@ -41,32 +41,51 @@ var requiredVars = []string{
 // 可选扩展：EMBED_BASE_URL、EMBED_API_KEY（embedding 走另一家平台时指定，
 // 缺省回落到 LLM_BASE_URL / LLM_API_KEY）。
 func Load() (*Config, error) {
-	missing := make([]string, 0, len(requiredVars))
-	for _, k := range requiredVars {
-		if strings.TrimSpace(os.Getenv(k)) == "" {
-			missing = append(missing, k)
+	cfg, _, err := LoadWithOptions(false)
+	return cfg, err
+}
+
+// LoadWithOptions 在 allowSetup=true（对应 --setup-ui / ALLOW_WEB_SETUP=true）时，
+// 仍强制要求 MYSQL_DSN 就绪，但允许模型相关环境变量暂时为空以进入网页引导配置态；
+// 默认 allowSetup=false 时与 Load() 严格一致。
+func LoadWithOptions(allowSetup bool) (cfg *Config, missingModels []string, err error) {
+	if !allowSetup {
+		missing := make([]string, 0, len(requiredVars))
+		for _, k := range requiredVars {
+			if strings.TrimSpace(os.Getenv(k)) == "" {
+				missing = append(missing, k)
+			}
 		}
-	}
-	if len(missing) > 0 {
-		return nil, fmt.Errorf("缺少必需的环境变量：%s", strings.Join(missing, ", "))
+		if len(missing) > 0 {
+			return nil, nil, fmt.Errorf("缺少必需的环境变量：%s", strings.Join(missing, ", "))
+		}
+	} else {
+		if strings.TrimSpace(os.Getenv("MYSQL_DSN")) == "" {
+			return nil, nil, fmt.Errorf("缺少必需的环境变量：MYSQL_DSN")
+		}
+		for _, k := range []string{"LLM_BASE_URL", "LLM_API_KEY", "LLM_CHAT_MODEL", "LLM_EMBED_MODEL"} {
+			if strings.TrimSpace(os.Getenv(k)) == "" {
+				missingModels = append(missingModels, k)
+			}
+		}
 	}
 
 	c := &Config{MySQLDSN: os.Getenv("MYSQL_DSN"), HTTPAddr: getenv("HTTP_ADDR", ":8080")}
 	c.Chat = Endpoint{
-		BaseURL: os.Getenv("LLM_BASE_URL"),
-		APIKey:  os.Getenv("LLM_API_KEY"),
-		Model:   os.Getenv("LLM_CHAT_MODEL"),
+		BaseURL: strings.TrimSpace(os.Getenv("LLM_BASE_URL")),
+		APIKey:  strings.TrimSpace(os.Getenv("LLM_API_KEY")),
+		Model:   strings.TrimSpace(os.Getenv("LLM_CHAT_MODEL")),
 	}
 	// embedding 端点：默认跟随对话端点，可用 EMBED_* 单独指定另一家服务商
 	c.Embed = Endpoint{
-		BaseURL: getenv("EMBED_BASE_URL", c.Chat.BaseURL),
-		APIKey:  getenv("EMBED_API_KEY", c.Chat.APIKey),
-		Model:   os.Getenv("LLM_EMBED_MODEL"),
+		BaseURL: strings.TrimSpace(getenv("EMBED_BASE_URL", c.Chat.BaseURL)),
+		APIKey:  strings.TrimSpace(getenv("EMBED_API_KEY", c.Chat.APIKey)),
+		Model:   strings.TrimSpace(os.Getenv("LLM_EMBED_MODEL")),
 	}
 	// 可选 VLM 端点：未配置 LLM_VLM_MODEL 时为空，遇扫描件/图片时显式提示
 	c.VLM = Endpoint{
-		BaseURL: getenv("VLM_BASE_URL", c.Chat.BaseURL),
-		APIKey:  getenv("VLM_API_KEY", c.Chat.APIKey),
+		BaseURL: strings.TrimSpace(getenv("VLM_BASE_URL", c.Chat.BaseURL)),
+		APIKey:  strings.TrimSpace(getenv("VLM_API_KEY", c.Chat.APIKey)),
 		Model:   strings.TrimSpace(os.Getenv("LLM_VLM_MODEL")),
 	}
 	// 可选 Rerank 端点：未配置 RERANK_BASE_URL 时跳过重排；API Key 缺省回落 EMBED_API_KEY / LLM_API_KEY
@@ -85,11 +104,21 @@ func Load() (*Config, error) {
 		Model:   rerankModel,
 	}
 	c.ConvertEngine = strings.ToLower(strings.TrimSpace(getenv("CONVERT_ENGINE", "native")))
-	return c, nil
+	return c, missingModels, nil
+}
+
+// IsTruthyEnv 判断布尔环境变量是否为开启值（1/true/yes/on）。
+func IsTruthyEnv(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func getenv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
 	}
 	return def

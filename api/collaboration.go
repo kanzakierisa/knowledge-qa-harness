@@ -67,6 +67,7 @@ func (h *Handler) PatchGap(c *gin.Context) {
 }
 
 type createFeedbackRequest struct {
+	TurnID            *int64  `json:"turn_id"`
 	ProjectSlug       string  `json:"project_slug"`
 	Question          string  `json:"question" binding:"required"`
 	RetrievedChunkIDs []int64 `json:"retrieved_chunk_ids"`
@@ -93,6 +94,7 @@ func (h *Handler) CreateFeedback(c *gin.Context) {
 		return
 	}
 	fb, err := h.Store.CreateFeedback(store.CreateFeedbackParams{
+		TurnID:            req.TurnID,
 		ProjectSlug:       req.ProjectSlug,
 		Question:          req.Question,
 		RetrievedChunkIDs: req.RetrievedChunkIDs,

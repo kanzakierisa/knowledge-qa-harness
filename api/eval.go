@@ -23,6 +23,7 @@ func newEvalHTTPHandler(h *Handler) *evalHTTPHandler {
 			Debug:       false,
 			ProjectSlug: projectSlug,
 			RecordGap:   false,
+			AllowHidden: true,
 		})
 		ids := make([]int64, 0, len(top))
 		for _, chunk := range top {

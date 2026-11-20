@@ -38,6 +38,8 @@ func TestDocumentsHTTPInputValidation(t *testing.T) {
 		ct     string
 	}{
 		{http.MethodPost, "/api/projects", `{}`, "application/json"},
+		{http.MethodPost, "/api/projects", `{"name":"   "}`, "application/json"},
+		{http.MethodPost, "/api/projects", `{"slug":"Bad Slug","name":"测试项目"}`, "application/json"},
 		{http.MethodPost, "/api/documents/upload", `{"filename":"a.md"}`, "application/json"},
 		{http.MethodPost, "/api/documents/upload", `{"filename":"a.md","content":"hello","doc_level":"bad"}`, "application/json"},
 		{http.MethodGet, "/api/documents/abc", ``, ""},

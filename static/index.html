@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Go 知识问答 · 可溯源 Demo</title>
+  <title>可溯源知识问答工作台</title>
   <link rel="icon" href="data:," />
   <style>
     :root,
@@ -228,7 +228,46 @@
     .topbar-right {
       display: flex;
       align-items: center;
+      gap: 6px;
       flex-shrink: 0;
+    }
+
+    .setup-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--accent-text);
+      background: var(--accent-soft);
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .setup-pill-btn.is-missing {
+      color: var(--warn-text);
+      background: var(--warn-bg);
+    }
+
+    .setup-pill-btn:hover {
+      filter: brightness(0.96);
+    }
+
+    .setup-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ok-text);
+      flex-shrink: 0;
+    }
+
+    .setup-pill-btn.is-missing .setup-dot {
+      background: var(--warn-accent);
     }
 
     .theme-toggle {
@@ -785,6 +824,12 @@
       gap: 4px;
     }
 
+    .quick-field-head {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .quick-field-label {
       font-size: 11.5px;
       font-weight: 600;
@@ -854,6 +899,9 @@
       border-radius: 50%;
       background: var(--surface-muted);
       color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -873,7 +921,7 @@
       left: 50%;
       bottom: calc(100% + 7px);
       transform: translateX(-50%);
-      width: 224px;
+      width: 212px;
       padding: 8px 10px;
       border-radius: 8px;
       background: var(--tooltip-bg);
@@ -888,12 +936,53 @@
       z-index: 40;
       text-align: left;
       font-weight: 400;
+      white-space: pre-line;
+    }
+
+    .tooltip-wrap.is-down .tooltip-bubble {
+      top: calc(100% + 7px);
+      bottom: auto;
+    }
+
+    .tooltip-wrap.is-left-edge .tooltip-bubble {
+      left: 0;
+      transform: none;
+    }
+
+    .tooltip-wrap.is-right-edge .tooltip-bubble {
+      left: auto;
+      right: 0;
+      transform: none;
     }
 
     .tooltip-wrap:hover .tooltip-bubble,
     .tooltip-wrap:focus-within .tooltip-bubble {
       opacity: 1;
       visibility: visible;
+    }
+
+    body.has-floating-tooltip .tooltip-wrap .tooltip-bubble {
+      display: none !important;
+    }
+
+    .floating-tooltip {
+      position: fixed;
+      top: 0;
+      left: 0;
+      max-width: 288px;
+      padding: 8px 11px;
+      border-radius: 8px;
+      background: var(--tooltip-bg);
+      color: var(--tooltip-text);
+      font-size: 11.5px;
+      line-height: 1.5;
+      box-shadow: var(--shadow-sm);
+      pointer-events: none;
+      z-index: 9999;
+      text-align: left;
+      font-weight: 400;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
     }
 
     /* ---- 中栏：仿图二/三/四 无框宽敞阅读流 + 图一圆角悬浮输入卡 ---- */
@@ -1839,6 +1928,10 @@
       cursor: not-allowed;
     }
 
+    .fb-copy-btn {
+      margin-left: auto;
+    }
+
     .fb-comment-box {
       display: flex;
       flex-wrap: wrap;
@@ -1961,7 +2054,8 @@
     }
 
     .gov-toolbar-search {
-      width: 140px;
+      width: 162px;
+      flex: 0 1 162px;
       padding: 4px 8px;
       font-size: 12px;
       color: var(--text);
@@ -1972,13 +2066,22 @@
       transition: border-color 0.15s ease, background-color 0.15s ease;
     }
 
+    #pane-radar-list .gov-toolbar-search {
+      width: 220px;
+      flex: 0 1 220px;
+    }
+
+    #docs-active-proj-pill {
+      max-width: 112px;
+    }
+
     .gov-toolbar-search:focus {
       background: var(--bg);
       border-color: var(--accent);
     }
 
     .gov-toolbar-select {
-      max-width: 108px;
+      max-width: 96px;
       padding: 4px 6px;
       font-size: 11.5px;
       font-weight: 500;
@@ -2097,7 +2200,7 @@
     .shadcn-table-head {
       flex: 0 0 auto;
       display: grid;
-      grid-template-columns: minmax(170px, 2fr) minmax(105px, 1fr) 64px 52px 216px;
+      grid-template-columns: minmax(160px, 2fr) minmax(100px, 1fr) 62px 48px 240px;
       align-items: center;
       gap: 8px;
       padding: 8px 14px;
@@ -2124,7 +2227,7 @@
 
     .doc-row {
       display: grid;
-      grid-template-columns: minmax(170px, 2fr) minmax(105px, 1fr) 64px 52px 216px;
+      grid-template-columns: minmax(160px, 2fr) minmax(100px, 1fr) 62px 48px 240px;
       align-items: center;
       gap: 8px;
       padding: 10px 14px;
@@ -2532,22 +2635,358 @@
       gap: 8px;
     }
 
-    .meta-corner {
-      flex: 0 0 auto;
-      padding: 6px 18px;
-      border-top: 1px solid var(--hairline);
+    /* ---- 左侧持久化任务列表（仿参考图 1~3） ---- */
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .task-row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: background-color 0.14s ease, color 0.14s ease;
+      min-height: 33px;
+    }
+
+    .task-row:hover,
+    .task-row:focus-within,
+    .task-row.is-menu-open {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .task-row.is-active {
+      background: var(--accent-soft);
+      color: var(--accent-text);
+      font-weight: 600;
+    }
+
+    .task-row-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .task-pin-icon {
+      width: 12px;
+      height: 12px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .task-row-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 12.5px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-inline-input {
+      width: 100%;
+      padding: 3px 6px;
+      font-size: 12.5px;
+      color: var(--text);
       background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .task-row-right {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 44px;
+    }
+
+    .task-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .task-more-btn {
+      display: none;
+      width: 24px;
+      height: 22px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .task-more-btn:hover {
+      background: var(--surface-muted);
+      color: var(--text);
+    }
+
+    .task-row:hover .task-time,
+    .task-row:focus-within .task-time,
+    .task-row.is-menu-open .task-time {
+      display: none;
+    }
+
+    .task-row:hover .task-more-btn,
+    .task-row:focus-within .task-more-btn,
+    .task-row.is-menu-open .task-more-btn {
+      display: inline-flex;
+    }
+
+    .task-toggle-btn {
+      align-self: flex-start;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 0.14s ease, background-color 0.14s ease;
+    }
+
+    .task-toggle-btn:hover {
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+
+    /* 悬浮详情卡片（fixed 挂载到 body，避免被左侧栏 overflow 裁切） */
+    .task-hover-card {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 268px;
+      padding: 11px 13px;
+      border-radius: 11px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      pointer-events: none;
+      z-index: 9990;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .task-hover-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .task-hover-meta {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 4px 12px;
+      gap: 5px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    .task-hover-time {
       font-size: 11.5px;
       color: var(--text-muted);
     }
 
-    .meta-item {
-      overflow-wrap: anywhere;
+    /* ... 右键/更多菜单（仅置顶、重命名、删除任务） */
+    .task-context-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      min-width: 146px;
+      padding: 5px;
+      border-radius: 11px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      z-index: 9995;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .task-menu-item {
+      width: 100%;
+      padding: 7px 10px;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+    }
+
+    .task-menu-item:hover {
+      background: var(--surface-subtle);
+    }
+
+    .task-menu-item.is-danger {
+      color: var(--error-text);
+    }
+
+    .task-menu-item.is-danger:hover {
+      background: var(--error-bg);
+    }
+
+    .task-menu-sep {
+      height: 1px;
+      margin: 3px 6px;
+      background: var(--hairline);
+    }
+
+    /* ---- 中栏当前会话指标条 & 多轮纵向流 ---- */
+    .session-metrics-bar {
+      flex: 0 0 auto;
+      padding: 5px 18px 7px;
+      border-bottom: 1px solid var(--hairline);
+      background: var(--bg);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 10px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .session-metrics-badge {
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--surface-subtle);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .session-metrics-item strong {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .chat-turns-list {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .chat-turn-block {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 盲区与反馈中间栏底部的「全部提问」右对齐汇总 */
+    .radar-online-stats {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px 16px 14px;
+      border-top: 1px solid var(--hairline);
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .radar-online-stats strong {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    /* ---- Setup UI 模型配置引导弹窗 ---- */
+    .setup-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 10000;
+    }
+
+    .setup-modal {
+      width: 100%;
+      max-width: 500px;
+      max-height: 90dvh;
+      overflow-y: auto;
+      padding: 20px 22px;
+      border-radius: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .setup-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .setup-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .setup-sub {
+      margin: 4px 0 0;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .setup-advanced {
+      padding: 10px 12px;
+      border-radius: 9px;
+      background: var(--surface-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .setup-advanced summary {
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .setup-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
     }
 
     /* 响应式断点：平板与手机端切换单栏聚焦 */
@@ -2609,7 +3048,15 @@
 
     @media (max-width: 680px) {
       .topbar {
-        padding: 3px 10px;
+        height: auto;
+        min-height: 39px;
+        flex-wrap: wrap;
+        padding: 6px 10px;
+        gap: 6px 8px;
+      }
+
+      .topbar-right {
+        margin-left: auto;
       }
 
       .tab-btn {
@@ -2617,8 +3064,9 @@
         font-size: 11.5px;
       }
 
-      .meta-corner {
-        padding: 8px 12px;
+      .setup-pill-btn {
+        padding: 2px 7px;
+        font-size: 11px;
       }
     }
   </style>
@@ -2662,6 +3110,10 @@
       </div>
 
       <div class="topbar-right">
+        <button id="setup-open-btn" type="button" class="setup-pill-btn" hidden>
+          <span class="setup-dot" aria-hidden="true"></span>
+          <span id="setup-open-label">模型配置</span>
+        </button>
         <button id="theme-toggle" type="button" class="theme-toggle" aria-label="切换深浅色主题">
           <svg id="theme-icon-moon" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
@@ -2712,8 +3164,13 @@
             <!-- 查询模式切换：按主题 vs 按材料 -->
             <div class="side-section">
               <div class="side-section-head">
-                <h3 class="side-section-title">查询模式</h3>
-                <span id="scope-mode-badge" class="doc-badge is-fmt">主题域</span>
+                <h3 class="side-section-title">
+                  <span>查询模式</span>
+                  <span class="tooltip-wrap is-down">
+                    <button type="button" class="info-icon-btn" aria-label="查询模式说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">按主题空间隔离检索，避免跨项目串台；按材料查询可指定单篇或多篇文档作答。</span>
+                  </span>
+                </h3>
               </div>
 
               <div class="seg-control" role="tablist" aria-label="选择按主题或按材料查询">
@@ -2724,7 +3181,6 @@
               <!-- 模式 A：按主题/项目空间查询 -->
               <div id="scope-topic-panel">
                 <div id="project-bar" class="project-bar" aria-label="项目空间切换">
-                  <span class="project-bar-label">选择一个主题空间，或保持自动识别（防跨项目串台）：</span>
                   <div id="project-chips" class="project-chips">
                     <button type="button" class="project-chip is-active" data-project="">自动识别（防跨项目串台）</button>
                   </div>
@@ -2734,7 +3190,7 @@
               <!-- 模式 B：按具体材料（单篇/多篇文档）查询 -->
               <div id="scope-material-panel" hidden>
                 <div class="material-toolbar">
-                  <input id="material-search" class="material-search" type="search" placeholder="筛选材料名称、文件名或主题…" aria-label="筛选材料" />
+                  <input id="material-search" class="material-search" type="search" placeholder="搜索材料或主题…" aria-label="筛选材料" />
                   <div class="material-actions-row">
                     <span id="material-selected-count">未指定材料（查全部）</span>
                     <button id="material-clear-btn" type="button" class="btn-ghost-sm">全部材料</button>
@@ -2744,7 +3200,22 @@
               </div>
             </div>
 
-            <!-- 快速上传到数据库（支持多文件 + 分行选择器 + 悬停说明 + 5s 警告消失） -->
+            <!-- 持久化任务列表（查询模式下方、快速上传入库上方） -->
+            <div id="task-list-section" class="side-section">
+              <div class="side-section-head">
+                <h3 class="side-section-title">
+                  <span>任务 (<span id="tasks-total-count">0</span>)</span>
+                  <span class="tooltip-wrap is-down">
+                    <button type="button" class="info-icon-btn" aria-label="任务列表说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">自动保存的问答任务，支持悬停查看详情、置顶、重命名与删除。</span>
+                  </span>
+                </h3>
+              </div>
+              <div id="task-list" class="task-list" aria-label="历史问答任务"></div>
+              <button id="tasks-toggle-btn" type="button" class="task-toggle-btn" hidden>查看更多</button>
+            </div>
+
+            <!-- 快速上传到数据库 -->
             <div id="quick-upload-card" class="side-section">
               <div class="side-section-head">
                 <h3 class="side-section-title">
@@ -2754,8 +3225,11 @@
                     <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                   <span>快速上传入库</span>
+                  <span class="tooltip-wrap is-down">
+                    <button type="button" class="info-icon-btn" aria-label="快速上传支持格式说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">支持单个或多个 .md、.txt、.docx、.xlsx、.pdf 及图片文件批量切片入库。</span>
+                  </span>
                 </h3>
-                <span class="doc-badge">支持多文件</span>
               </div>
 
               <form id="quick-upload-form" class="quick-upload-form" novalidate>
@@ -2768,7 +3242,7 @@
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
                   </span>
-                  <span class="quick-drop-title">拖拽或点击选择单个 / 多个文件</span>
+                  <span class="quick-drop-title">拖拽或点击选择文件（可多选）</span>
                   <span class="quick-drop-sub">.md / .txt / .docx / .xlsx / .pdf / 图片</span>
                 </div>
 
@@ -2779,14 +3253,26 @@
                     <span class="quick-field-label">目标主题</span>
                     <select id="quick-upload-project" class="quick-select" aria-label="快速上传目标主题"></select>
                   </label>
-                  <label class="quick-field">
-                    <span class="quick-field-label">文档种类</span>
-                    <select id="quick-upload-level" class="quick-select" aria-label="快速上传文档种类">
-                      <option value="spec">规范 (spec)</option>
-                      <option value="rfc">评审 (rfc)</option>
-                      <option value="note">纪要 (note)</option>
+                  <div class="quick-field">
+                    <div class="quick-field-head">
+                      <label for="quick-upload-level" class="quick-field-label">文档类型</label>
+                      <span class="tooltip-wrap is-down is-left-edge">
+                        <button type="button" id="quick-doc-level-info-btn" class="info-icon-btn" aria-label="查看文档类型区别说明">
+                          <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                        </button>
+                        <span class="tooltip-bubble" role="tooltip">按权威层级区分检索排序权重与适用场景：&#10;• 正式规范 (spec，权重 1.00)：已定稿制度、流程与标准，同分匹配时优先引用；&#10;• 方案评审 (rfc，权重 0.96)：设计评审与方案草案，权威度次于正式规范；&#10;• 会议纪要 (note，权重 0.92)：阶段讨论与排期记录，权威度低于前两类。</span>
+                      </span>
+                    </div>
+                    <select id="quick-upload-level" class="quick-select" aria-label="快速上传文档类型">
+                      <option value="spec">正式规范</option>
+                      <option value="rfc">方案评审</option>
+                      <option value="note">会议纪要</option>
                     </select>
-                  </label>
+                  </div>
                 </div>
 
                 <div class="quick-upload-footer">
@@ -2795,18 +3281,18 @@
                       <input id="quick-upload-overwrite" type="checkbox" />
                       <span>强制覆盖重切</span>
                     </label>
-                    <span class="tooltip-wrap">
-                      <button type="button" class="info-icon-btn" aria-label="查看强制覆盖重切说明" title="勾选后，即使上传同项目、同名且内容未变的文档，也会强制覆盖旧版本、重新切片并触发 Doc CI/CD 局部回归校验。">
+                    <span class="tooltip-wrap is-down is-left-edge">
+                      <button type="button" class="info-icon-btn" aria-label="查看强制覆盖重切说明">
                         <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                           <circle cx="12" cy="12" r="10" />
                           <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
                           <line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                       </button>
-                      <span class="tooltip-bubble" role="tooltip">勾选后，即使上传同项目、同名且内容完全相同的文档，也会强制覆盖旧切片、重算向量并触发 Doc CI/CD 局部回归校验。</span>
+                      <span class="tooltip-bubble" role="tooltip">勾选后，即使上传同项目、同名且内容未变的文档，也会强制覆盖旧段落、更新索引并触发局部回归校验。</span>
                     </span>
                   </div>
-                  <button id="quick-upload-btn" type="submit" class="btn-primary-sm" style="width:100%">上传并切片入库</button>
+                  <button id="quick-upload-btn" type="submit" class="btn-primary-sm" style="width:100%">上传入库</button>
                 </div>
 
                 <div id="quick-upload-msg" class="gov-msg" hidden></div>
@@ -2828,17 +3314,23 @@
             </div>
           </div>
 
-          <div id="session-history-bar" class="session-bar" hidden>
-            <span class="session-bar-label">本轮记录：</span>
+          <div id="session-metrics-bar" class="session-metrics-bar" aria-label="当前会话统计">
+            <span class="session-metrics-badge">当前会话</span>
+            <span class="session-metrics-item">引用准确率：<strong id="sess-stat-cit">--</strong></span>
+            <span aria-hidden="true">·</span>
+            <span class="session-metrics-item">反馈可用率：<strong id="sess-stat-fb">--</strong></span>
+            <span aria-hidden="true">·</span>
+            <span class="session-metrics-item">拒答：<strong id="sess-stat-ref">0 次</strong></span>
           </div>
 
           <div class="chat-stage">
             <main id="result-area" class="chat-stream" aria-live="polite">
               <div class="chat-center-col">
-                <!-- 用户提问气泡 -->
-                <div id="question-bubble-row" class="question-bubble-row" hidden>
-                  <div id="question-bubble-text" class="question-bubble"></div>
-                  <span id="question-bubble-meta" class="question-meta"></span>
+                <div id="chat-turns-list" class="chat-turns-list"></div>
+
+                <div id="pending-question-row" class="question-bubble-row" hidden>
+                  <div id="pending-question-text" class="question-bubble"></div>
+                  <span id="pending-question-meta" class="question-meta"></span>
                 </div>
 
                 <div id="loading-box" class="status-box loading-box" hidden>
@@ -2847,61 +3339,20 @@
                 </div>
 
                 <div id="error-box" class="status-box error-box" role="alert" hidden></div>
-
-                <section id="ambiguity-box" class="ambiguity-box" hidden>
-                  <p class="ambiguity-title">检测到多个并行项目均包含与该问题相关的规范</p>
-                  <p class="ambiguity-desc">为防止跨项目规范串台混答，请先点击确认您要查询的具体项目：</p>
-                  <div id="ambiguity-candidates" class="ambiguity-candidates"></div>
-                  <div class="ambiguity-actions">
-                    <button id="compare-btn" type="button" class="btn-ghost-sm">并排对比以上候选项目</button>
-                  </div>
-                </section>
-
-                <section id="compare-section" class="compare-section" hidden>
-                  <h2 class="section-label">
-                    <span class="section-label-left">
-                      <span>多项目并排对照回答</span>
-                      <span class="section-sub">各项目空间独立检索作答，互不串台</span>
-                    </span>
-                  </h2>
-                  <div id="compare-list" class="compare-grid"></div>
-                </section>
-
-                <section id="refusal-box" class="refusal-box" hidden>
-                  <p class="refusal-title">文档中没有依据</p>
-                  <p id="refusal-desc" class="refusal-desc">当前语料中未检索到足够依据，系统已拒答而不编造结论。</p>
-                  <div id="refusal-feedback" class="feedback-bar" hidden></div>
-                </section>
-
-                <section id="answer-card" class="answer-card" hidden>
-                  <div id="warnings-banner" class="warnings-banner" hidden>
-                    <p class="warnings-title">废弃文档警示</p>
-                    <ul id="warnings-list" class="warnings-list"></ul>
-                  </div>
-                  <h2 class="section-label">
-                    <span class="section-label-left">
-                      <span>回答</span>
-                      <span id="resolved-badge" class="resolved-badge" hidden></span>
-                    </span>
-                    <button id="jump-sources-btn" type="button" class="btn-ghost-sm">查看右侧原文 →</button>
-                  </h2>
-                  <div id="answer-body" class="answer-body"></div>
-                  <div id="answer-feedback" class="feedback-bar" hidden></div>
-                </section>
               </div>
             </main>
 
             <!-- 新会话居中放大 / 对话时停靠底部（仿图四） -->
             <div class="composer-dock">
               <div class="composer-inner">
-                <h2 id="hero-product-title" class="hero-product-title">Go 知识问答，我帮你</h2>
+                <h2 id="hero-product-title" class="hero-product-title">知识库问答，我帮你</h2>
 
                 <form id="ask-form" class="ask-form" novalidate>
                   <textarea
                     id="question-input"
                     class="ask-input"
                     rows="1"
-                    placeholder="输入想查询的知识问题，例如：Gin 路由组怎么用？（回车提问，Shift+Enter 换行）"
+                    placeholder="输入想查询的问题…（Enter 发送，Shift+Enter 换行）"
                     autocomplete="off"
                     aria-label="输入问题"
                   ></textarea>
@@ -2913,7 +3364,10 @@
                         </svg>
                         <span>范围 / 上传</span>
                       </button>
-                      <span class="section-sub">支持 [n] 句级溯源与无据拒答</span>
+                      <span class="tooltip-wrap">
+                        <button type="button" class="info-icon-btn" aria-label="作答机制说明">?</button>
+                        <span class="tooltip-bubble" role="tooltip">回答中的 [n] 支持句级原文高亮溯源；检索不到可靠依据时将明确拒答。</span>
+                      </span>
                     </div>
                     <button id="ask-btn" class="ask-btn" type="submit">
                       <span class="btn-spinner" aria-hidden="true"></span>
@@ -2925,14 +3379,14 @@
                 <p id="validation-hint" class="validation-hint" hidden></p>
 
                 <div class="examples" aria-label="示例问题">
-                  <button type="button" class="example-chip" data-q="Gin 路由组怎么用？">
-                    <span>Gin 路由组怎么用？</span>
+                  <button type="button" class="example-chip" data-q="已入库文档中的核心流程和规范是什么？">
+                    <span>已入库文档中的核心流程和规范是什么？</span>
                     <svg class="example-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
                   </button>
-                  <button type="button" class="example-chip" data-q="Gin 里怎么绑定 JSON 请求体？">
-                    <span>Gin 里怎么绑定 JSON 请求体？</span>
+                  <button type="button" class="example-chip" data-q="不同项目对同一主题的规定有哪些差异？">
+                    <span>不同项目对同一主题的规定有哪些差异？</span>
                     <svg class="example-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
@@ -2974,15 +3428,18 @@
             <!-- 模式 1：命中片段（含句级荧光高亮） -->
             <div id="right-citations-view">
               <div id="sources-empty" class="right-empty">
-                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">等待检索参考来源</p>
-                <p style="margin:0;">提问后此处将列出命中的原文段落；点击回答中的 <code>[n]</code> 可自动定位并高亮支撑原句。也可以在左侧「按材料查询」中点击任意材料的 <strong>原文</strong> 预览全文。</p>
+                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">暂无参考原文</p>
+                <p style="margin:0;">提问后将在此展示命中的引用段落。</p>
               </div>
 
               <section id="sources-section" class="sources-section" hidden>
                 <h2 class="section-label">
                   <span class="section-label-left">
                     <span id="sources-title">参考来源</span>
-                    <span class="section-sub">点击 [n] 高亮支撑句</span>
+                    <span class="tooltip-wrap is-down">
+                      <button type="button" class="info-icon-btn" aria-label="来源高亮说明">?</button>
+                      <span class="tooltip-bubble" role="tooltip">点击回答中的 [n] 编号可自动定位并高亮对应的支撑原句。</span>
+                    </span>
                   </span>
                 </h2>
                 <div id="sources-list" class="sources-list"></div>
@@ -2992,8 +3449,8 @@
             <!-- 模式 2：整篇原文预览 -->
             <div id="right-document-view" hidden>
               <div id="doc-preview-empty" class="right-empty">
-                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">尚未选择要预览的文档</p>
-                <p style="margin:0;">请在左侧「按材料查询」列表中点击任意材料的 <strong>原文</strong> 按钮，或点击引用卡片上的 <strong>查看整篇</strong>。</p>
+                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">未选择预览文档</p>
+                <p style="margin:0;">可在左侧材料列表中点击「原文」查看全文。</p>
               </div>
               <div id="doc-preview-loading" class="status-box loading-box" hidden>
                 <span class="loading-dot" aria-hidden="true"></span>
@@ -3021,7 +3478,7 @@
     <!-- 页签 2：资料库治理（方案 A：三栏同构 · 左空间树与新建 + 中 shadcn Tasks 数据表 + 右热入库/切片预览抽屉） -->
     <main id="tab-docs" class="tab-ask-wrap" hidden>
       <div id="docs-workspace" class="workspace-3col">
-        <button id="toggle-docs-right-btn" type="button" class="icon-btn is-active desktop-only-toggle right-pinned-toggle" title="收起右侧热入库与切片预览栏" aria-label="切换右侧热入库与切片预览栏">
+        <button id="toggle-docs-right-btn" type="button" class="icon-btn is-active desktop-only-toggle right-pinned-toggle" title="收起右侧上传与预览栏" aria-label="切换右侧上传与预览栏">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect width="18" height="18" x="3" y="3" rx="2" />
             <path d="M15 3v18" />
@@ -3044,7 +3501,6 @@
             <div class="side-section">
               <div class="side-section-head">
                 <h3 class="side-section-title">项目空间目录</h3>
-                <span class="doc-badge is-fmt">点击过滤</span>
               </div>
               <div id="docs-project-nav" class="project-chips" style="max-height:190px"></div>
             </div>
@@ -3059,7 +3515,7 @@
                   <span id="kpi-docs-total" class="gov-kpi-val">0</span>
                 </div>
                 <div class="gov-kpi-card">
-                  <span class="gov-kpi-label">生效中 (active)</span>
+                  <span class="gov-kpi-label">生效中</span>
                   <span id="kpi-docs-active" class="gov-kpi-val is-ok">0</span>
                 </div>
                 <div class="gov-kpi-card">
@@ -3075,21 +3531,22 @@
 
             <div class="side-section">
               <div class="side-section-head">
-                <h3 class="side-section-title">新建项目空间</h3>
-                <span class="doc-badge">实时生效</span>
+                <h3 class="side-section-title">
+                  <span>新建项目空间</span>
+                  <span class="tooltip-wrap is-down">
+                    <button type="button" class="info-icon-btn" aria-label="新建项目空间说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">仅需输入项目名称即可创建独立知识空间，内部标识由系统自动生成，创建后实时生效。</span>
+                  </span>
+                </h3>
               </div>
               <form id="project-form" class="gov-side-card" novalidate>
                 <label class="gov-field">
-                  <span class="gov-label">项目标识（slug，小写字母/数字/连字符）</span>
-                  <input id="proj-slug" class="gov-input" type="text" placeholder="例如：events" required />
-                </label>
-                <label class="gov-field">
                   <span class="gov-label">项目名称</span>
-                  <input id="proj-name" class="gov-input" type="text" placeholder="例如：活动运营项目" required />
+                  <input id="proj-name" class="gov-input" type="text" placeholder="如：活动运营项目" required />
                 </label>
                 <label class="gov-field">
-                  <span class="gov-label">说明（可选）</span>
-                  <input id="proj-desc" class="gov-input" type="text" placeholder="例如：活动排期与规则" />
+                  <span class="gov-label">简介（可选）</span>
+                  <input id="proj-desc" class="gov-input" type="text" placeholder="如：活动排期与规则" />
                 </label>
                 <button id="proj-submit" class="btn-primary-sm" type="submit" style="width:100%">创建项目</button>
                 <div id="proj-msg" class="gov-msg" hidden></div>
@@ -3102,28 +3559,38 @@
         <section id="pane-docs-table" class="pane pane-center is-mobile-active" aria-label="资料库文档列表">
           <div class="pane-head">
             <div class="chat-head-left">
-              <span id="docs-active-proj-pill" class="scope-pill">项目：全部项目空间</span>
+              <span id="docs-active-proj-pill" class="scope-pill">全部空间</span>
               <span id="docs-count-badge" class="doc-badge">共 0 篇</span>
             </div>
 
             <div class="gov-toolbar-right">
-              <input id="docs-search-input" class="gov-toolbar-search" type="search" placeholder="搜索标题、文件名、负责人…" aria-label="搜索文档" />
+              <input id="docs-search-input" class="gov-toolbar-search" type="search" placeholder="搜索文档或负责人…" aria-label="搜索文档" />
               <select id="filter-project" class="gov-toolbar-select" aria-label="按项目过滤">
                 <option value="">全部项目</option>
               </select>
               <select id="filter-status" class="gov-toolbar-select" aria-label="按状态过滤">
                 <option value="">全部状态</option>
-                <option value="active">仅生效（active）</option>
-                <option value="deprecated">仅废弃（deprecated）</option>
+                <option value="active">生效中</option>
+                <option value="deprecated">已废弃</option>
               </select>
               <select id="filter-level" class="gov-toolbar-select" aria-label="按层级过滤">
-                <option value="">全部层级</option>
-                <option value="spec">spec（规范）</option>
-                <option value="rfc">rfc（评审）</option>
-                <option value="note">note（纪要）</option>
+                <option value="">全部类型</option>
+                <option value="spec">正式规范</option>
+                <option value="rfc">方案评审</option>
+                <option value="note">会议纪要</option>
               </select>
+              <span class="tooltip-wrap is-down">
+                <button type="button" id="docs-level-info-btn" class="info-icon-btn" aria-label="查看文档类型区别说明">
+                  <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </button>
+                <span class="tooltip-bubble" role="tooltip">按权威层级区分检索排序权重与适用场景：&#10;• 正式规范 (spec，权重 1.00)：已定稿制度、流程与标准，同分匹配时优先引用；&#10;• 方案评审 (rfc，权重 0.96)：设计评审与方案草案，权威度次于正式规范；&#10;• 会议纪要 (note，权重 0.92)：阶段讨论与排期记录，权威度低于前两类。</span>
+              </span>
               <button id="docs-refresh" type="button" class="btn-ghost-sm">刷新</button>
-              <button id="docs-open-upload-btn" type="button" class="btn-primary-sm">+ 热入库</button>
+              <button id="docs-open-upload-btn" type="button" class="btn-primary-sm">+ 上传文档</button>
             </div>
           </div>
 
@@ -3132,7 +3599,7 @@
           <div class="gov-table-wrap">
             <div class="shadcn-table-head">
               <span>文档标题 / 文件与负责人</span>
-              <span>项目与层级</span>
+              <span>项目与类型</span>
               <span>状态</span>
               <span>切片</span>
               <span style="text-align:right">操作</span>
@@ -3143,36 +3610,37 @@
           </div>
         </section>
 
-        <!-- 右栏：多格式文档热入库 & 切片详情预览抽屉 -->
-        <aside id="pane-docs-inspector" class="pane pane-right" aria-label="热入库与文档切片预览">
+        <!-- 右栏：文档上传与切片预览抽屉 -->
+        <aside id="pane-docs-inspector" class="pane pane-right" aria-label="上传与文档切片预览">
           <div class="pane-head">
             <h2 class="pane-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
               </svg>
-              <span>入库与切片</span>
+              <span>上传与切片</span>
             </h2>
 
             <div class="right-head-actions">
               <div class="right-mode-switch" role="tablist" aria-label="右侧抽屉模式">
-                <button id="docs-right-mode-upload" type="button" class="right-mode-btn is-active">多格式热入库</button>
-                <button id="docs-right-mode-preview" type="button" class="right-mode-btn">切片预览</button>
+                <button id="docs-right-mode-upload" type="button" class="right-mode-btn is-active">上传文档</button>
+                <button id="docs-right-mode-preview" type="button" class="right-mode-btn">切片详情</button>
               </div>
             </div>
           </div>
 
           <div class="pane-scroll">
-            <!-- 抽屉模式 1：多格式文档热入库 & Doc CI/CD 局部回归体检单 -->
+            <!-- 抽屉模式 1：文档上传与 Doc CI/CD 局部回归体检单 -->
             <div id="docs-right-upload-view">
               <form id="upload-form" class="gov-side-card" novalidate>
-                <div class="side-section-head">
-                  <h3 class="side-section-title">多格式文档热入库</h3>
-                  <span class="doc-badge is-fmt">支持多选</span>
-                </div>
-
                 <label class="gov-field">
-                  <span class="gov-label">选择文件（.md / .txt / .docx / .xlsx / .pdf / 图片）</span>
+                  <span class="gov-label" style="display:inline-flex;align-items:center;gap:5px">
+                    <span>选择上传文件</span>
+                    <span class="tooltip-wrap is-down is-left-edge">
+                      <button type="button" class="info-icon-btn" aria-label="支持格式说明">?</button>
+                      <span class="tooltip-bubble" role="tooltip">支持多选上传，自动识别 .md、.txt、.docx、.xlsx、.pdf 及图片并即时切片建索引。</span>
+                    </span>
+                  </span>
                   <input id="upload-file" class="gov-input" type="file" multiple accept=".md,.markdown,.txt,.docx,.xlsx,.pdf,.png,.jpg,.jpeg,.webp" required />
                 </label>
 
@@ -3182,28 +3650,44 @@
                 </label>
 
                 <div class="gov-kpi-grid">
-                  <label class="gov-field">
-                    <span class="gov-label">文档层级</span>
+                  <div class="gov-field">
+                    <span class="gov-label" style="display:inline-flex;align-items:center;gap:5px">
+                      <label for="upload-level">文档类型</label>
+                      <span class="tooltip-wrap is-down">
+                        <button type="button" id="upload-doc-level-info-btn" class="info-icon-btn" aria-label="查看文档类型区别说明">
+                          <svg class="icon" style="width:12px;height:12px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                        </button>
+                        <span class="tooltip-bubble" role="tooltip">按权威层级区分检索排序权重与适用场景：&#10;• 正式规范 (spec，权重 1.00)：已定稿制度、流程与标准，同分匹配时优先引用；&#10;• 方案评审 (rfc，权重 0.96)：设计评审与方案草案，权威度次于正式规范；&#10;• 会议纪要 (note，权重 0.92)：阶段讨论与排期记录，权威度低于前两类。</span>
+                      </span>
+                    </span>
                     <select id="upload-level" class="gov-select">
-                      <option value="spec">spec（正式规范）</option>
-                      <option value="rfc">rfc（方案评审）</option>
-                      <option value="note">note（会议纪要）</option>
+                      <option value="spec">正式规范</option>
+                      <option value="rfc">方案评审</option>
+                      <option value="note">会议纪要</option>
                     </select>
-                  </label>
+                  </div>
                   <label class="gov-field">
                     <span class="gov-label">负责人（可选）</span>
-                    <input id="upload-owner" class="gov-input" type="text" placeholder="例如：张三" />
+                    <input id="upload-owner" class="gov-input" type="text" placeholder="如：张三" />
                   </label>
                 </div>
 
                 <div class="overwrite-row">
                   <label class="gov-checkbox">
                     <input id="upload-overwrite" type="checkbox" />
-                    <span>同名文档内容未变也强制覆盖重切</span>
+                    <span>强制覆盖重切</span>
                   </label>
+                  <span class="tooltip-wrap">
+                    <button type="button" class="info-icon-btn" aria-label="强制覆盖重切说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">勾选后即使同项目同名且内容未变，也会强制覆盖旧段落并触发局部回归校验。</span>
+                  </span>
                 </div>
 
-                <button id="upload-submit" class="btn-primary-sm" type="submit" style="width:100%">上传并切片入库</button>
+                <button id="upload-submit" class="btn-primary-sm" type="submit" style="width:100%">上传入库</button>
                 <div id="upload-msg" class="gov-msg" hidden></div>
                 <div id="upload-regression" class="reg-summary" hidden></div>
               </form>
@@ -3212,8 +3696,8 @@
             <!-- 抽屉模式 2：选中文档的切片与原文预览 -->
             <div id="docs-right-preview-view" hidden>
               <div id="docs-preview-empty" class="right-empty">
-                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">尚未选择要检视的文档</p>
-                <p style="margin:0;">点击中间表格中的任意文档行或行右侧的 <strong>预览</strong> 按钮，即可在此检视该文档的全部入库切片与元数据。</p>
+                <p style="margin:0 0 6px;font-weight:600;color:var(--text);">未选择预览文档</p>
+                <p style="margin:0;">选择中间列表中的任意文档即可在此查看切片内容。</p>
               </div>
               <div id="docs-preview-box" hidden></div>
             </div>
@@ -3225,15 +3709,15 @@
     <!-- 页签 3：盲区与反馈（方案 A：三栏同构 · 左分拣视图与活评测 + 中 Plane Triage / Mail 队列 + 右审阅与转正工作台） -->
     <main id="tab-radar" class="tab-ask-wrap" hidden>
       <div id="radar-workspace" class="workspace-3col">
-        <button id="toggle-radar-right-btn" type="button" class="icon-btn is-active desktop-only-toggle right-pinned-toggle" title="收起右侧审阅与转正面板" aria-label="切换右侧审阅与转正面板">
+        <button id="toggle-radar-right-btn" type="button" class="icon-btn is-active desktop-only-toggle right-pinned-toggle" title="收起右侧详情与处理栏" aria-label="切换右侧详情与处理栏">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect width="18" height="18" x="3" y="3" rx="2" />
             <path d="M15 3v18" />
           </svg>
         </button>
 
-        <!-- 左栏：分拣收件箱视图 + 统计概览 + 活评测回归中心 -->
-        <aside id="pane-radar-nav" class="pane pane-left" aria-label="分拣视图与活评测中心">
+        <!-- 左栏：队列视图 + 统计概览 + 回归验证 -->
+        <aside id="pane-radar-nav" class="pane pane-left" aria-label="队列与回归验证">
           <div class="pane-head">
             <h2 class="pane-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3241,7 +3725,7 @@
                 <circle cx="12" cy="12" r="6" />
                 <circle cx="12" cy="12" r="2" />
               </svg>
-              <span>分拣与活评测</span>
+              <span>队列与回归</span>
             </h2>
             <button id="radar-refresh-all-btn" type="button" class="btn-ghost-sm">全部刷新</button>
           </div>
@@ -3249,20 +3733,19 @@
           <div class="sidebar-stack">
             <div class="side-section">
               <div class="side-section-head">
-                <h3 class="side-section-title">分拣收件箱视图</h3>
-                <span class="doc-badge is-fmt">Triage</span>
+                <h3 class="side-section-title">队列视图</h3>
               </div>
               <div id="radar-view-nav" class="project-chips">
                 <button type="button" class="project-chip is-active" data-radar-view="all">
-                  <span>全部队列（同屏分拣）</span>
+                  <span>全部待办队列</span>
                   <span id="nav-radar-all-count" style="font-size:11px;opacity:0.8">全部</span>
                 </button>
                 <button type="button" class="project-chip" data-radar-view="gaps">
-                  <span>团队知识盲区雷达</span>
+                  <span>知识盲区</span>
                   <span id="nav-radar-gaps-count" style="font-size:11px;opacity:0.8">0</span>
                 </button>
                 <button type="button" class="project-chip" data-radar-view="feedback">
-                  <span>用户反馈与待转正</span>
+                  <span>用户反馈</span>
                   <span id="nav-radar-fb-count" style="font-size:11px;opacity:0.8">0</span>
                 </button>
               </div>
@@ -3270,7 +3753,7 @@
 
             <div class="side-section">
               <div class="side-section-head">
-                <h3 class="side-section-title">闭环治理指标</h3>
+                <h3 class="side-section-title">治理指标</h3>
               </div>
               <div class="gov-kpi-grid">
                 <div class="gov-kpi-card">
@@ -3282,11 +3765,11 @@
                   <span id="kpi-gaps-resolved" class="gov-kpi-val is-ok">0</span>
                 </div>
                 <div class="gov-kpi-card">
-                  <span class="gov-kpi-label">待转正反馈</span>
+                  <span class="gov-kpi-label">待加入评测</span>
                   <span id="kpi-fb-pending" class="gov-kpi-val is-accent">0</span>
                 </div>
                 <div class="gov-kpi-card">
-                  <span class="gov-kpi-label">已转正评测题</span>
+                  <span class="gov-kpi-label">已加入评测</span>
                   <span id="kpi-fb-promoted" class="gov-kpi-val is-ok">0</span>
                 </div>
               </div>
@@ -3294,11 +3777,15 @@
 
             <div class="side-section">
               <div class="side-section-head">
-                <h3 class="side-section-title">活评测回归中心</h3>
-                <span class="doc-badge">feedback 集</span>
+                <h3 class="side-section-title">
+                  <span>反馈集回归验证</span>
+                  <span class="tooltip-wrap">
+                    <button type="button" class="info-icon-btn" aria-label="活评测回归说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">对已加入评测集的线上反馈问题一键执行端到端检索命中率、引用准确率与拒答正确率回归验证。</span>
+                  </span>
+                </h3>
               </div>
               <div class="gov-side-card">
-                <span class="project-bar-label">一键对已转正的线上反馈评测集（question_set=feedback）执行端到端检索命中率、引用准确率与拒答正确率回归。</span>
                 <button id="fb-run-eval" type="button" class="btn-primary-sm" style="width:100%">运行 feedback 活评测</button>
                 <div id="fb-eval-msg" class="gov-msg" hidden></div>
               </div>
@@ -3306,34 +3793,38 @@
           </div>
         </aside>
 
-        <!-- 中栏：Plane Triage / shadcn Mail 主从极简分拣队列 -->
-        <section id="pane-radar-list" class="pane pane-center is-mobile-active" aria-label="盲区与反馈分拣队列">
+        <!-- 中栏：主从极简待办队列 -->
+        <section id="pane-radar-list" class="pane pane-center is-mobile-active" aria-label="盲区与反馈队列">
           <div class="pane-head">
             <div class="chat-head-left">
-              <span id="radar-active-view-pill" class="scope-pill">分拣视图：全部队列（盲区 + 反馈）</span>
+              <span id="radar-active-view-pill" class="scope-pill">全部待办</span>
             </div>
             <div class="gov-toolbar-right">
-              <input id="radar-search-input" class="gov-toolbar-search" type="search" placeholder="搜索问题、备注、近似文档…" aria-label="搜索盲区与反馈" />
+              <input id="radar-search-input" class="gov-toolbar-search" type="search" placeholder="搜索盲区或反馈内容…" aria-label="搜索盲区与反馈" />
             </div>
           </div>
 
           <div class="radar-center-scroll">
-            <!-- 区块 1：团队知识盲区雷达 -->
+            <!-- 区块 1：知识盲区列表 -->
             <div id="radar-gaps-block" class="triage-block">
               <div class="triage-section-head">
                 <div class="triage-section-title">
-                  <span>团队知识盲区雷达</span>
+                  <span>知识盲区</span>
                   <span id="gaps-count-badge" class="doc-badge">0 条</span>
+                  <span class="tooltip-wrap is-down">
+                    <button type="button" class="info-icon-btn" aria-label="知识盲区说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">线上提问因依据不足而拒答的问题会自动汇总至此，便于针对性补充文档。</span>
+                  </span>
                 </div>
                 <div class="gov-filters">
                   <select id="gaps-filter-project" class="gov-toolbar-select" aria-label="按盲区项目过滤">
                     <option value="">全部项目</option>
-                    <option value="auto">自动路由（auto）</option>
+                    <option value="auto">自动识别</option>
                   </select>
                   <select id="gaps-filter-status" class="gov-toolbar-select" aria-label="按盲区状态过滤">
-                    <option value="open">待补充（open）</option>
-                    <option value="resolved">已解决（resolved）</option>
-                    <option value="ignored">已忽略（ignored）</option>
+                    <option value="open">待补充</option>
+                    <option value="resolved">已解决</option>
+                    <option value="ignored">已忽略</option>
                     <option value="all">全部状态</option>
                   </select>
                   <button id="gaps-refresh" type="button" class="btn-ghost-sm">刷新</button>
@@ -3343,23 +3834,27 @@
               <div id="gaps-list" class="triage-list"></div>
             </div>
 
-            <!-- 区块 2：用户反馈队列与活评测转正 -->
+            <!-- 区块 2：用户反馈列表 -->
             <div id="radar-fb-block" class="triage-block">
               <div class="triage-section-head">
                 <div class="triage-section-title">
-                  <span>用户反馈队列与活评测转正</span>
+                  <span>用户反馈</span>
                   <span id="fb-count-badge" class="doc-badge">0 条</span>
+                  <span class="tooltip-wrap is-down">
+                    <button type="button" class="info-icon-btn" aria-label="用户反馈说明">?</button>
+                    <span class="tooltip-bubble" role="tooltip">展示回答下方的用户点赞/点踩反馈，审阅后可加入回归评测集。</span>
+                  </span>
                 </div>
                 <div class="gov-filters">
                   <select id="fb-filter-vote" class="gov-toolbar-select" aria-label="按反馈类型过滤">
                     <option value="">全部反馈</option>
-                    <option value="down">仅 👎 有问题</option>
-                    <option value="up">仅 👍 准确</option>
+                    <option value="down">仅看差评</option>
+                    <option value="up">仅看好评</option>
                   </select>
-                  <select id="fb-filter-promoted" class="gov-toolbar-select" aria-label="按转正状态过滤">
+                  <select id="fb-filter-promoted" class="gov-toolbar-select" aria-label="按加入评测状态过滤">
                     <option value="">全部状态</option>
-                    <option value="pending">仅待转正</option>
-                    <option value="promoted">仅已转正</option>
+                    <option value="pending">待加入评测</option>
+                    <option value="promoted">已加入评测</option>
                   </select>
                   <button id="fb-refresh" type="button" class="btn-ghost-sm">刷新</button>
                 </div>
@@ -3367,38 +3862,144 @@
               <div id="fb-msg" class="gov-msg gov-inline-msg" hidden></div>
               <div id="fb-list" class="triage-list"></div>
             </div>
+
+            <!-- 全部提问真实汇总统计（仅统计线上真实提问，右对齐于中间滚动末尾） -->
+            <div id="radar-online-stats" class="radar-online-stats">全部提问：加载中…</div>
           </div>
         </section>
 
-        <!-- 右栏：shadcn Mail 详情审阅与活评测转正工作台 -->
-        <aside id="pane-radar-inspector" class="pane pane-right" aria-label="盲区与反馈审阅详情">
+        <!-- 右栏：详情与处理面板 -->
+        <aside id="pane-radar-inspector" class="pane pane-right" aria-label="盲区与反馈详情处理">
           <div class="pane-head">
             <h2 class="pane-title">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 11l3 3L22 4" />
                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
               </svg>
-              <span>审阅与转正</span>
+              <span>详情与处理</span>
             </h2>
             <span id="radar-inspector-badge" class="doc-badge">未选择</span>
           </div>
 
           <div class="pane-scroll">
             <div id="radar-inspector-empty" class="right-empty">
-              <p style="margin:0 0 6px;font-weight:600;color:var(--text);">选择左侧或中间条目进行审阅</p>
-              <p style="margin:0;">点击中间队列中的任意「知识盲区」或「用户反馈」，即可在此检视完整问答原文、Top1 检索诊断信息，或填写标准答案将其一键转正为活评测题。</p>
+              <p style="margin:0 0 6px;font-weight:600;color:var(--text);">暂无选中条目</p>
+              <p style="margin:0;">点击中间列表中的任意盲区或反馈即可在此查看详情。</p>
             </div>
             <div id="radar-inspector-content" hidden></div>
           </div>
         </aside>
       </div>
     </main>
+  </div>
 
-    <!-- 底部状态条 -->
-    <footer class="meta-corner">
-      <span id="chunk-status" class="meta-item">当前语料：加载中…</span>
-      <span class="meta-item">最近评测（52 题，更新于 2026-11-17）：检索命中率 100% · 引用准确率 100% · 答案可用率 100% · 拒答正确率 100%</span>
-    </footer>
+  <div id="floating-tooltip" class="floating-tooltip" role="tooltip" hidden></div>
+
+  <!-- 左侧任务列表悬浮详情卡片（fixed 定位防裁切） -->
+  <div id="task-hover-card" class="task-hover-card" hidden>
+    <div id="task-hover-title" class="task-hover-title"></div>
+    <div id="task-hover-meta" class="task-hover-meta"></div>
+    <div id="task-hover-time" class="task-hover-time"></div>
+  </div>
+
+  <!-- 左侧任务 ... 操作菜单（仅置顶、重命名、删除任务） -->
+  <div id="task-context-menu" class="task-context-menu" role="menu" hidden>
+    <button id="task-menu-pin" type="button" class="task-menu-item" role="menuitem">
+      <svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 17v5" />
+        <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+      </svg>
+      <span id="task-menu-pin-label">置顶</span>
+    </button>
+    <button id="task-menu-rename" type="button" class="task-menu-item" role="menuitem">
+      <svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+      <span>重命名</span>
+    </button>
+    <div class="task-menu-sep" role="separator"></div>
+    <button id="task-menu-delete" type="button" class="task-menu-item is-danger" role="menuitem">
+      <svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18" />
+        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      </svg>
+      <span>删除任务</span>
+    </button>
+  </div>
+
+  <!-- --setup-ui / ALLOW_WEB_SETUP 模型配置引导弹窗（仅写入进程内存，绝不落盘） -->
+  <div id="setup-modal" class="setup-backdrop" role="dialog" aria-modal="true" aria-labelledby="setup-modal-title" hidden>
+    <form id="setup-form" class="setup-modal" novalidate>
+      <div class="setup-head">
+        <div>
+          <h2 id="setup-modal-title" class="setup-title">配置模型接入（仅存内存运行态）</h2>
+          <p class="setup-sub">当前服务以引导模式启动。填入兼容 OpenAI 的对话与 Embedding 模型参数即可体验，密钥仅存于当前进程内存，绝不落盘写入仓库。</p>
+        </div>
+        <button id="setup-close-btn" type="button" class="btn-ghost-sm">关闭</button>
+      </div>
+
+      <label class="gov-field">
+        <span class="gov-label">对话 API 地址（LLM_BASE_URL，必填）</span>
+        <input id="setup-llm-url" class="gov-input" type="text" placeholder="需带协议前缀，例如 DeepSeek / OpenAI v1 地址" required />
+      </label>
+
+      <label class="gov-field">
+        <span class="gov-label">对话 API Key（LLM_API_KEY，必填）</span>
+        <input id="setup-llm-key" class="gov-input" type="password" autocomplete="off" placeholder="输入您的模型 API Key（仅存内存）" required />
+      </label>
+
+      <div class="gov-kpi-grid">
+        <label class="gov-field">
+          <span class="gov-label">对话模型（LLM_CHAT_MODEL）</span>
+          <input id="setup-chat-model" class="gov-input" type="text" placeholder="如：deepseek-chat / gpt-4o-mini" required />
+        </label>
+        <label class="gov-field">
+          <span class="gov-label">向量模型（LLM_EMBED_MODEL）</span>
+          <input id="setup-embed-model" class="gov-input" type="text" placeholder="如：text-embedding-v3" required />
+        </label>
+      </div>
+
+      <details class="setup-advanced">
+        <summary>独立 Embedding / VLM / Rerank 高级配置（可选）</summary>
+        <label class="gov-field">
+          <span class="gov-label">独立 Embedding 地址（EMBED_BASE_URL，留空沿用对话地址）</span>
+          <input id="setup-embed-url" class="gov-input" type="text" placeholder="可选：如 DashScope 兼容模式地址" />
+        </label>
+        <label class="gov-field">
+          <span class="gov-label">独立 Embedding Key（EMBED_API_KEY，留空沿用对话 Key）</span>
+          <input id="setup-embed-key" class="gov-input" type="password" autocomplete="off" placeholder="可选" />
+        </label>
+        <div class="gov-kpi-grid">
+          <label class="gov-field">
+            <span class="gov-label">VLM 多模态模型（可选）</span>
+            <input id="setup-vlm-model" class="gov-input" type="text" placeholder="如：qwen-vl-max" />
+          </label>
+          <label class="gov-field">
+            <span class="gov-label">Rerank 地址（可选）</span>
+            <input id="setup-rerank-url" class="gov-input" type="text" placeholder="可选：重排服务地址" />
+          </label>
+        </div>
+        <div class="gov-kpi-grid">
+          <label class="gov-field">
+            <span class="gov-label">Rerank 模型（可选）</span>
+            <input id="setup-rerank-model" class="gov-input" type="text" placeholder="默认 gte-rerank-v2" />
+          </label>
+          <label class="gov-field">
+            <span class="gov-label">Rerank Key（可选）</span>
+            <input id="setup-rerank-key" class="gov-input" type="password" autocomplete="off" placeholder="可选" />
+          </label>
+        </div>
+      </details>
+
+      <div id="setup-msg" class="gov-msg" hidden></div>
+
+      <div class="setup-actions">
+        <button id="setup-cancel-btn" type="button" class="btn-ghost-sm">稍后再填</button>
+        <button id="setup-submit-btn" type="submit" class="btn-primary-sm">应用到运行内存</button>
+      </div>
+    </form>
   </div>
 
   <script>
@@ -3410,6 +4011,110 @@
       var THEME_KEY = 'kqa_theme';
       var LEFT_OPEN_KEY = 'kqa_left_open';
       var RIGHT_OPEN_KEY = 'kqa_right_open';
+
+      // ---- 视口自适应悬停气泡（防止侧边栏溢出裁剪） ----
+      var floatingTooltipEl = document.getElementById('floating-tooltip');
+      var activeTooltipWrap = null;
+      var pinnedTooltipWrap = null;
+      if (floatingTooltipEl) {
+        document.body.classList.add('has-floating-tooltip');
+
+        function hideFloatingTooltip(clearPin) {
+          if (clearPin !== false) {
+            pinnedTooltipWrap = null;
+          }
+          activeTooltipWrap = null;
+          floatingTooltipEl.hidden = true;
+        }
+
+        function showFloatingTooltipFor(wrap) {
+          var bubble = wrap ? wrap.querySelector('.tooltip-bubble') : null;
+          var txt = bubble ? (bubble.textContent || '').trim() : '';
+          if (!txt) {
+            hideFloatingTooltip();
+            return;
+          }
+          var anchor = wrap.querySelector('.info-icon-btn') || wrap;
+          floatingTooltipEl.textContent = txt;
+          floatingTooltipEl.style.left = '-9999px';
+          floatingTooltipEl.style.top = '-9999px';
+          floatingTooltipEl.hidden = false;
+
+          var rect = anchor.getBoundingClientRect();
+          var tipRect = floatingTooltipEl.getBoundingClientRect();
+          var margin = 10;
+          var gap = 8;
+
+          var preferDown = wrap.classList.contains('is-down');
+          var spaceBelow = window.innerHeight - rect.bottom - margin;
+          var spaceAbove = rect.top - margin;
+          var top = (preferDown && spaceBelow >= tipRect.height) || spaceAbove < tipRect.height + gap
+            ? (rect.bottom + gap)
+            : (rect.top - tipRect.height - gap);
+          top = Math.max(margin, Math.min(top, window.innerHeight - tipRect.height - margin));
+
+          var left = rect.left + (rect.width - tipRect.width) / 2;
+          left = Math.max(margin, Math.min(left, window.innerWidth - tipRect.width - margin));
+
+          floatingTooltipEl.style.left = Math.round(left) + 'px';
+          floatingTooltipEl.style.top = Math.round(top) + 'px';
+        }
+
+        document.addEventListener('mouseover', function (e) {
+          var wrap = e.target && e.target.closest ? e.target.closest('.tooltip-wrap') : null;
+          if (wrap) {
+            activeTooltipWrap = wrap;
+            showFloatingTooltipFor(wrap);
+          }
+        });
+
+        document.addEventListener('mouseout', function (e) {
+          if (activeTooltipWrap && (!e.relatedTarget || !activeTooltipWrap.contains(e.relatedTarget))) {
+            if (pinnedTooltipWrap === activeTooltipWrap) return;
+            hideFloatingTooltip(false);
+          }
+        });
+
+        document.addEventListener('focusin', function (e) {
+          var wrap = e.target && e.target.closest ? e.target.closest('.tooltip-wrap') : null;
+          if (wrap) {
+            activeTooltipWrap = wrap;
+            showFloatingTooltipFor(wrap);
+          }
+        });
+
+        document.addEventListener('focusout', function (e) {
+          if (activeTooltipWrap && (!e.relatedTarget || !activeTooltipWrap.contains(e.relatedTarget))) {
+            if (pinnedTooltipWrap === activeTooltipWrap) return;
+            hideFloatingTooltip(false);
+          }
+        });
+
+        document.addEventListener('click', function (e) {
+          var btn = e.target && e.target.closest ? e.target.closest('.info-icon-btn') : null;
+          if (btn) {
+            var wrap = btn.closest('.tooltip-wrap');
+            if (wrap) {
+              e.preventDefault();
+              e.stopPropagation();
+              if (pinnedTooltipWrap === wrap && !floatingTooltipEl.hidden) {
+                hideFloatingTooltip(true);
+              } else {
+                pinnedTooltipWrap = wrap;
+                activeTooltipWrap = wrap;
+                showFloatingTooltipFor(wrap);
+              }
+              return;
+            }
+          }
+          if (pinnedTooltipWrap && (!e.target || !pinnedTooltipWrap.contains(e.target))) {
+            hideFloatingTooltip(true);
+          }
+        });
+
+        window.addEventListener('scroll', function () { hideFloatingTooltip(true); }, true);
+        window.addEventListener('resize', function () { hideFloatingTooltip(true); });
+      }
 
       // ---- 主题初始化与深浅色一键切换 ----
       var htmlEl = document.documentElement;
@@ -3455,16 +4160,33 @@
       var toggleRightBtn = document.getElementById('toggle-right-btn');
       var composerShortcutBtn = document.getElementById('composer-scope-shortcut');
 
+      var setupOpenBtn = document.getElementById('setup-open-btn');
+      var setupOpenLabel = document.getElementById('setup-open-label');
+      var setupModal = document.getElementById('setup-modal');
+      var setupForm = document.getElementById('setup-form');
+      var setupCloseBtn = document.getElementById('setup-close-btn');
+      var setupCancelBtn = document.getElementById('setup-cancel-btn');
+      var setupSubmitBtn = document.getElementById('setup-submit-btn');
+      var setupMsg = document.getElementById('setup-msg');
+      var setupLlmUrl = document.getElementById('setup-llm-url');
+      var setupLlmKey = document.getElementById('setup-llm-key');
+      var setupChatModel = document.getElementById('setup-chat-model');
+      var setupEmbedModel = document.getElementById('setup-embed-model');
+      var setupEmbedUrl = document.getElementById('setup-embed-url');
+      var setupEmbedKey = document.getElementById('setup-embed-key');
+      var setupVlmModel = document.getElementById('setup-vlm-model');
+      var setupRerankUrl = document.getElementById('setup-rerank-url');
+      var setupRerankModel = document.getElementById('setup-rerank-model');
+      var setupRerankKey = document.getElementById('setup-rerank-key');
+
       var form = document.getElementById('ask-form');
       var questionInput = document.getElementById('question-input');
       var askBtn = document.getElementById('ask-btn');
       var btnLabel = askBtn.querySelector('.btn-label');
       var validationHint = document.getElementById('validation-hint');
       var projectChipsEl = document.getElementById('project-chips');
-      var chunkStatus = document.getElementById('chunk-status');
       var exampleChips = document.querySelectorAll('.example-chip');
 
-      var scopeModeBadge = document.getElementById('scope-mode-badge');
       var modeTopicBtn = document.getElementById('mode-topic-btn');
       var modeMaterialBtn = document.getElementById('mode-material-btn');
       var scopeTopicPanel = document.getElementById('scope-topic-panel');
@@ -3477,6 +4199,19 @@
       var materialClearBtn = document.getElementById('material-clear-btn');
       var materialListEl = document.getElementById('material-list');
 
+      var tasksTotalCount = document.getElementById('tasks-total-count');
+      var taskListEl = document.getElementById('task-list');
+      var tasksToggleBtn = document.getElementById('tasks-toggle-btn');
+      var taskHoverCard = document.getElementById('task-hover-card');
+      var taskHoverTitle = document.getElementById('task-hover-title');
+      var taskHoverMeta = document.getElementById('task-hover-meta');
+      var taskHoverTime = document.getElementById('task-hover-time');
+      var taskContextMenu = document.getElementById('task-context-menu');
+      var taskMenuPinBtn = document.getElementById('task-menu-pin');
+      var taskMenuPinLabel = document.getElementById('task-menu-pin-label');
+      var taskMenuRenameBtn = document.getElementById('task-menu-rename');
+      var taskMenuDeleteBtn = document.getElementById('task-menu-delete');
+
       var quickUploadForm = document.getElementById('quick-upload-form');
       var quickDropzone = document.getElementById('quick-dropzone');
       var quickUploadFile = document.getElementById('quick-upload-file');
@@ -3488,30 +4223,18 @@
       var quickUploadMsg = document.getElementById('quick-upload-msg');
       var quickUploadReg = document.getElementById('quick-upload-reg');
 
-      var questionBubbleRow = document.getElementById('question-bubble-row');
-      var questionBubbleText = document.getElementById('question-bubble-text');
-      var questionBubbleMeta = document.getElementById('question-bubble-meta');
       var clearChatBtn = document.getElementById('clear-chat-btn');
-      var sessionHistoryBar = document.getElementById('session-history-bar');
+      var sessStatCit = document.getElementById('sess-stat-cit');
+      var sessStatFb = document.getElementById('sess-stat-fb');
+      var sessStatRef = document.getElementById('sess-stat-ref');
 
       var resultAreaEl = document.getElementById('result-area');
+      var chatTurnsListEl = document.getElementById('chat-turns-list');
+      var pendingQuestionRow = document.getElementById('pending-question-row');
+      var pendingQuestionText = document.getElementById('pending-question-text');
+      var pendingQuestionMeta = document.getElementById('pending-question-meta');
       var loadingBox = document.getElementById('loading-box');
       var errorBox = document.getElementById('error-box');
-      var ambiguityBox = document.getElementById('ambiguity-box');
-      var ambiguityCandidatesEl = document.getElementById('ambiguity-candidates');
-      var compareBtn = document.getElementById('compare-btn');
-      var compareSection = document.getElementById('compare-section');
-      var compareListEl = document.getElementById('compare-list');
-      var refusalBox = document.getElementById('refusal-box');
-      var refusalDesc = document.getElementById('refusal-desc');
-      var refusalFeedbackEl = document.getElementById('refusal-feedback');
-      var answerCard = document.getElementById('answer-card');
-      var warningsBanner = document.getElementById('warnings-banner');
-      var warningsList = document.getElementById('warnings-list');
-      var resolvedBadge = document.getElementById('resolved-badge');
-      var answerBody = document.getElementById('answer-body');
-      var answerFeedbackEl = document.getElementById('answer-feedback');
-      var jumpSourcesBtn = document.getElementById('jump-sources-btn');
 
       var rightModeCitationsBtn = document.getElementById('right-mode-citations');
       var rightModeDocumentBtn = document.getElementById('right-mode-document');
@@ -3549,10 +4272,16 @@
       var cachedProjects = [];
       var cachedMaterials = [];
       var sourceCardStates = {};
-      var lastAskContext = null;
       var currentPreviewDoc = null;
-      var sessionHistory = [];
-      var activeHistoryIndex = -1;
+      var activeSessionID = 0;
+      var currentTurns = [];
+      var activeCitationTurnID = 0;
+      var sessionsList = [];
+      var tasksExpanded = false;
+      var openMenuSessionID = 0;
+      var renamingSessionID = 0;
+      var hoverTaskTimer = null;
+      var setupPromptDismissed = false;
       var quickMsgTimer = null;
       var DEFAULT_REFUSAL_DESC = '当前语料中未检索到足够依据，系统已拒答而不编造结论。';
 
@@ -3618,18 +4347,208 @@
           }
           if (!resp.ok) {
             var errMsg = (payload && payload.error) ? payload.error : ('HTTP ' + resp.status);
-            throw new Error(errMsg);
+            var err = new Error(errMsg);
+            if (payload && payload.setup_required) {
+              err.setupRequired = true;
+            }
+            throw err;
           }
           return payload;
         });
       }
 
+      function getDefaultUploadProjectSlug() {
+        if (!Array.isArray(cachedProjects) || cachedProjects.length === 0) {
+          return '';
+        }
+        for (var i = 0; i < cachedProjects.length; i++) {
+          if (cachedProjects[i].slug && cachedProjects[i].slug !== 'shared') {
+            return cachedProjects[i].slug;
+          }
+        }
+        return cachedProjects[0].slug || '';
+      }
+
+      // ---- Setup UI 运行态模型配置引导 ----
+      function openSetupModal(msgText, msgKind) {
+        if (!setupModal) return;
+        setupMsg.hidden = true;
+        setupMsg.textContent = '';
+        if (msgText) {
+          setupMsg.className = 'gov-msg ' + (msgKind || 'is-warn');
+          setupMsg.textContent = msgText;
+          setupMsg.hidden = false;
+        }
+        setupModal.hidden = false;
+        if (setupLlmUrl && !setupLlmUrl.value.trim()) {
+          setupLlmUrl.focus();
+        } else if (setupLlmKey) {
+          setupLlmKey.focus();
+        }
+      }
+
+      function closeSetupModal(markDismissed) {
+        if (!setupModal) return;
+        setupModal.hidden = true;
+        if (markDismissed) {
+          setupPromptDismissed = true;
+        }
+      }
+
+      function loadSetupStatus(autoPromptIfMissing) {
+        return fetch('/api/setup/status', { method: 'GET' })
+          .then(readJSONResponse)
+          .then(function (st) {
+            if (!st) return;
+            var needSetup = !st.configured;
+            if (setupOpenBtn) {
+              setupOpenBtn.hidden = !(st.setup_enabled || needSetup);
+              setupOpenBtn.classList.toggle('is-missing', needSetup);
+            }
+            if (setupOpenLabel) {
+              setupOpenLabel.textContent = needSetup ? '待配置模型' : '模型已就绪';
+            }
+            if (setupLlmUrl && st.chat_base_url && !setupLlmUrl.value) setupLlmUrl.value = st.chat_base_url;
+            if (setupChatModel && st.chat_model && !setupChatModel.value) setupChatModel.value = st.chat_model;
+            if (setupEmbedModel && st.embed_model && !setupEmbedModel.value) setupEmbedModel.value = st.embed_model;
+            if (setupEmbedUrl && st.has_embed_override && st.embed_base_url && !setupEmbedUrl.value) {
+              setupEmbedUrl.value = st.embed_base_url;
+            }
+            if (setupVlmModel && st.vlm_model && !setupVlmModel.value) setupVlmModel.value = st.vlm_model;
+            if (setupRerankUrl && st.rerank_base_url && !setupRerankUrl.value) setupRerankUrl.value = st.rerank_base_url;
+            if (setupRerankModel && st.rerank_model && !setupRerankModel.value) setupRerankModel.value = st.rerank_model;
+            if (autoPromptIfMissing && needSetup && !setupPromptDismissed) {
+              openSetupModal('检测到模型参数尚未配置完整，请先填写下方 4 项必填参数以启用检索与问答。', 'is-warn');
+            }
+          })
+          .catch(function () {});
+      }
+
+      if (setupOpenBtn) {
+        setupOpenBtn.addEventListener('click', function () {
+          openSetupModal('', 'is-warn');
+        });
+      }
+      if (setupCloseBtn) {
+        setupCloseBtn.addEventListener('click', function () {
+          closeSetupModal(true);
+        });
+      }
+      if (setupCancelBtn) {
+        setupCancelBtn.addEventListener('click', function () {
+          closeSetupModal(true);
+        });
+      }
+      if (setupModal) {
+        setupModal.addEventListener('click', function (e) {
+          if (e.target === setupModal) {
+            closeSetupModal(true);
+          }
+        });
+      }
+      if (setupForm) {
+        setupForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var httpPrefix = 'http' + '://';
+          var httpsPrefix = 'https' + '://';
+          var llmUrl = setupLlmUrl.value.trim();
+          var llmKey = setupLlmKey.value.trim();
+          var chatModel = setupChatModel.value.trim();
+          var embedModel = setupEmbedModel.value.trim();
+          var embedUrl = setupEmbedUrl.value.trim();
+
+          if (!llmUrl || !llmKey || !chatModel || !embedModel) {
+            setupMsg.className = 'gov-msg is-err';
+            setupMsg.textContent = '请完整填写对话 API 地址、API Key、对话模型与向量模型（4 项必填）。';
+            setupMsg.hidden = false;
+            return;
+          }
+          if (llmUrl.indexOf(httpPrefix) !== 0 && llmUrl.indexOf(httpsPrefix) !== 0) {
+            setupMsg.className = 'gov-msg is-err';
+            setupMsg.textContent = '对话 API 地址需以协议前缀开头。';
+            setupMsg.hidden = false;
+            return;
+          }
+          if (embedUrl && embedUrl.indexOf(httpPrefix) !== 0 && embedUrl.indexOf(httpsPrefix) !== 0) {
+            setupMsg.className = 'gov-msg is-err';
+            setupMsg.textContent = '独立 Embedding 地址需以协议前缀开头。';
+            setupMsg.hidden = false;
+            return;
+          }
+
+          setupSubmitBtn.disabled = true;
+          setupSubmitBtn.textContent = '正在应用...';
+          setupMsg.hidden = true;
+
+          fetch('/api/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              llm_base_url: llmUrl,
+              llm_api_key: llmKey,
+              llm_chat_model: chatModel,
+              llm_embed_model: embedModel,
+              embed_base_url: embedUrl,
+              embed_api_key: setupEmbedKey.value.trim(),
+              llm_vlm_model: setupVlmModel.value.trim(),
+              rerank_base_url: setupRerankUrl.value.trim(),
+              rerank_model: setupRerankModel.value.trim(),
+              rerank_api_key: setupRerankKey.value.trim()
+            })
+          })
+            .then(readJSONResponse)
+            .then(function () {
+              setupSubmitBtn.disabled = false;
+              setupSubmitBtn.textContent = '应用到运行内存';
+              setupLlmKey.value = '';
+              setupEmbedKey.value = '';
+              setupRerankKey.value = '';
+              closeSetupModal(false);
+              loadSetupStatus(false);
+            })
+            .catch(function (err) {
+              setupSubmitBtn.disabled = false;
+              setupSubmitBtn.textContent = '应用到运行内存';
+              setupMsg.className = 'gov-msg is-err';
+              setupMsg.textContent = '应用失败：' + (err && err.message ? err.message : '未知错误');
+              setupMsg.hidden = false;
+            });
+        });
+      }
+
       function formatDocLevelLabel(level) {
         var l = String(level || '').toLowerCase();
-        if (l === 'spec') return '规范';
-        if (l === 'rfc') return 'RFC';
-        if (l === 'note') return '纪要';
+        if (l === 'spec') return '正式规范';
+        if (l === 'rfc') return '方案评审';
+        if (l === 'note') return '会议纪要';
         return level || '';
+      }
+
+      function getProjectDisplayName(slug) {
+        if (!slug || slug === 'auto') return '自动识别';
+        for (var i = 0; i < cachedProjects.length; i++) {
+          if (cachedProjects[i].slug === slug) {
+            return cachedProjects[i].name;
+          }
+        }
+        return slug;
+      }
+
+      function createInfoTooltip(tipText, wrapClass) {
+        var wrap = document.createElement('span');
+        wrap.className = 'tooltip-wrap' + (wrapClass ? (' ' + wrapClass) : '');
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'info-icon-btn';
+        btn.setAttribute('aria-label', '查看说明');
+        btn.textContent = '?';
+        var bubble = document.createElement('span');
+        bubble.className = 'tooltip-bubble';
+        bubble.setAttribute('role', 'tooltip');
+        bubble.textContent = tipText;
+        wrap.appendChild(btn);
+        wrap.appendChild(bubble);
+        return wrap;
       }
 
       function formatSourceIcon(sourceType) {
@@ -3673,13 +4592,6 @@
         setRightPanelMode('citations');
       });
 
-      jumpSourcesBtn.addEventListener('click', function () {
-        setRightSidebarOpen(true);
-        setRightPanelMode('citations');
-        setMobilePane('sources');
-        rightPaneScroll.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-
       function describeCurrentScope() {
         if (scopeMode === 'material') {
           if (selectedDocumentIDs.length === 0) {
@@ -3700,7 +4612,7 @@
         }
         for (var j = 0; j < cachedProjects.length; j++) {
           if (cachedProjects[j].slug === selectedProjectSlug) {
-            return '主题：' + cachedProjects[j].name + ' (' + cachedProjects[j].slug + ')';
+            return '主题：' + cachedProjects[j].name;
           }
         }
         return '主题：' + selectedProjectSlug;
@@ -3712,7 +4624,6 @@
         modeMaterialBtn.classList.toggle('is-active', isMaterial);
         scopeTopicPanel.hidden = isMaterial;
         scopeMaterialPanel.hidden = !isMaterial;
-        scopeModeBadge.textContent = isMaterial ? '指定材料' : '主题域';
         activeScopePill.textContent = describeCurrentScope();
         if (selectedDocumentIDs.length === 0) {
           materialSelectedCountEl.textContent = '未指定材料（查全部）';
@@ -3745,7 +4656,6 @@
         renderProjectBar(cachedProjects);
         renderMaterialList();
         syncScopeDisplay();
-        loadChunkCount();
       });
 
       materialClearBtn.addEventListener('click', function () {
@@ -3787,15 +4697,23 @@
             selectedProjectSlug = slug;
             renderProjectBar(cachedProjects);
             syncScopeDisplay();
-            loadChunkCount();
           });
           return btn;
         }
 
         projectChipsEl.appendChild(makeChip('', '自动识别（防跨项目串台）', 'Auto'));
+        if (!Array.isArray(list) || list.length === 0) {
+          var noProj = document.createElement('div');
+          noProj.className = 'empty-hint';
+          noProj.style.padding = '6px 4px';
+          noProj.style.fontSize = '12px';
+          noProj.textContent = '暂无可用项目，请先在「资料库治理」中新建项目空间。';
+          projectChipsEl.appendChild(noProj);
+          return;
+        }
         for (var i = 0; i < list.length; i++) {
           var p = list[i];
-          var label = p.name + ' (' + p.slug + ')';
+          var label = p.name;
           var meta = typeof p.chunk_count === 'number' ? (p.chunk_count + ' 段') : '';
           projectChipsEl.appendChild(makeChip(p.slug, label, meta));
         }
@@ -4058,26 +4976,571 @@
         questionInput.focus();
       });
 
-      function loadChunkCount() {
-        var url = '/api/chunks';
-        if (scopeMode === 'topic' && selectedProjectSlug) {
-          url += '?project_slug=' + encodeURIComponent(selectedProjectSlug);
+      // ---- 口径 B 真实指标计算与展示（当前会话 + 全部提问） ----
+      function computeSessionStats(turns) {
+        var list = Array.isArray(turns) ? turns : [];
+        var citOK = 0;
+        var citTotal = 0;
+        var fbUp = 0;
+        var fbDown = 0;
+        var refCount = 0;
+        var refUp = 0;
+        var refDown = 0;
+        for (var i = 0; i < list.length; i++) {
+          var t = list[i];
+          if (t.citation_ok === true) {
+            citOK++;
+            citTotal++;
+          } else if (t.citation_ok === false) {
+            citTotal++;
+          }
+          if (t.feedback_vote === 'up') {
+            fbUp++;
+          } else if (t.feedback_vote === 'down') {
+            fbDown++;
+          }
+          if (t.refused) {
+            refCount++;
+            if (t.feedback_vote === 'up') refUp++;
+            else if (t.feedback_vote === 'down') refDown++;
+          }
         }
-        fetch(url, { method: 'GET' })
+        return {
+          citation_ok_count: citOK,
+          citation_total_count: citTotal,
+          feedback_up_count: fbUp,
+          feedback_down_count: fbDown,
+          feedback_total_count: fbUp + fbDown,
+          refused_count: refCount,
+          refused_up_count: refUp,
+          refused_down_count: refDown
+        };
+      }
+
+      function renderSessionStats(statsInput) {
+        var st = statsInput || computeSessionStats(currentTurns);
+        if (sessStatCit) {
+          if (st.citation_total_count > 0) {
+            var citPct = (st.citation_ok_count / st.citation_total_count) * 100;
+            sessStatCit.textContent = citPct.toFixed(1) + '% (' + st.citation_ok_count + '/' + st.citation_total_count + ')';
+          } else {
+            sessStatCit.textContent = '--';
+          }
+        }
+        if (sessStatFb) {
+          if (st.feedback_total_count > 0) {
+            var fbPct = (st.feedback_up_count / st.feedback_total_count) * 100;
+            sessStatFb.textContent = fbPct.toFixed(1) + '% (' + st.feedback_up_count + '/' + st.feedback_total_count + ')';
+          } else {
+            sessStatFb.textContent = '--';
+          }
+        }
+        if (sessStatRef) {
+          var refTxt = (st.refused_count || 0) + ' 次';
+          var refVotes = (st.refused_up_count || 0) + (st.refused_down_count || 0);
+          if (refVotes > 0) {
+            refTxt += '（👍' + (st.refused_up_count || 0) + '/👎' + (st.refused_down_count || 0) + '）';
+          }
+          sessStatRef.textContent = refTxt;
+        }
+      }
+
+      function renderOnlineStats(st) {
+        var el = document.getElementById('radar-online-stats');
+        if (!el) return;
+        el.textContent = '';
+        if (!st) {
+          el.textContent = '全部提问：暂无统计数据';
+          return;
+        }
+        var label = document.createElement('strong');
+        label.textContent = '全部提问：';
+        el.appendChild(label);
+
+        var citText = st.citation_total_count > 0 && typeof st.citation_rate === 'number'
+          ? ((st.citation_rate * 100).toFixed(1) + '% (' + st.citation_ok_count + '/' + st.citation_total_count + ')')
+          : '--';
+        var fbText = st.feedback_total_count > 0 && typeof st.feedback_usable_rate === 'number'
+          ? ((st.feedback_usable_rate * 100).toFixed(1) + '% (' + st.feedback_up_count + '/' + st.feedback_total_count + ')')
+          : '--';
+        var summary = '共 ' + (st.total_turns || 0) + ' 次（已答 ' + (st.answered_turns || 0) + ' / 拒答 ' + (st.refused_count || 0) + '） · ' +
+          '引用准确率 ' + citText + ' · ' +
+          '反馈可用率 ' + fbText;
+        var refVotes = (st.refused_up_count || 0) + (st.refused_down_count || 0);
+        if (refVotes > 0) {
+          summary += '（含拒答确认 👍' + (st.refused_up_count || 0) + '/👎' + (st.refused_down_count || 0) + '）';
+        }
+        el.appendChild(document.createTextNode(summary));
+      }
+
+      function loadOnlineStats() {
+        return fetch('/api/stats/online', { method: 'GET' })
           .then(readJSONResponse)
           .then(function (data) {
-            if (data && typeof data.total === 'number') {
-              if (scopeMode === 'topic' && selectedProjectSlug) {
-                chunkStatus.textContent = '项目 ' + selectedProjectSlug + ' 自有语料 ' + data.total + ' 段（检索含 shared）';
-              } else {
-                chunkStatus.textContent = '当前语料 ' + data.total + ' 段';
-              }
-            } else {
-              chunkStatus.textContent = '当前语料段数未知';
-            }
+            renderOnlineStats(data);
           })
           .catch(function () {
-            chunkStatus.textContent = '当前语料段数获取失败';
+            renderOnlineStats(null);
+          });
+      }
+
+      // ---- 左侧持久化任务列表（置顶、悬停详情、... 菜单、重命名、删除） ----
+      function pad2(num) {
+        return num < 10 ? ('0' + num) : String(num);
+      }
+
+      function formatShortTaskTime(isoStr) {
+        if (!isoStr) return '';
+        var d = new Date(isoStr);
+        if (isNaN(d.getTime())) return '';
+        var now = new Date();
+        if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()) {
+          return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+        if (d.getFullYear() === now.getFullYear()) {
+          return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        }
+        return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+      }
+
+      function formatFullDateTime(isoStr) {
+        if (!isoStr) return '';
+        var d = new Date(isoStr);
+        if (isNaN(d.getTime())) return String(isoStr);
+        return d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + ' ' +
+          pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+      }
+
+      function formatTaskScopeLabel(sess) {
+        if (!sess) return '自动识别';
+        if (sess.scope_mode === 'material') {
+          var cnt = Array.isArray(sess.document_ids) ? sess.document_ids.length : 0;
+          return cnt > 0 ? ('指定材料 ' + cnt + ' 篇') : '材料模式';
+        }
+        if (sess.project_name) return sess.project_name;
+        if (sess.project_slug) return getProjectDisplayName(sess.project_slug);
+        return '自动识别';
+      }
+
+      function hideTaskHoverCard() {
+        if (hoverTaskTimer) {
+          clearTimeout(hoverTaskTimer);
+          hoverTaskTimer = null;
+        }
+        if (taskHoverCard) {
+          taskHoverCard.hidden = true;
+        }
+      }
+
+      function showTaskHoverCardFor(rowEl, sess) {
+        if (!taskHoverCard || !rowEl || !sess || openMenuSessionID === sess.id || renamingSessionID === sess.id) {
+          return;
+        }
+        taskHoverTitle.textContent = sess.title || '未命名任务';
+        var metaText = formatTaskScopeLabel(sess) + ' · ' + (sess.turn_count || 0) + ' 轮问答';
+        if (sess.is_pinned) {
+          metaText += ' · 已置顶';
+        }
+        taskHoverMeta.textContent = metaText;
+        taskHoverTime.textContent = '更新于 ' + formatFullDateTime(sess.updated_at);
+
+        taskHoverCard.style.left = '-9999px';
+        taskHoverCard.style.top = '-9999px';
+        taskHoverCard.hidden = false;
+
+        var rect = rowEl.getBoundingClientRect();
+        var cardRect = taskHoverCard.getBoundingClientRect();
+        var margin = 10;
+        var left = rect.right + 8;
+        if (left + cardRect.width > window.innerWidth - margin) {
+          left = Math.max(margin, rect.left - cardRect.width - 8);
+        }
+        var top = Math.max(margin, Math.min(rect.top, window.innerHeight - cardRect.height - margin));
+        taskHoverCard.style.left = Math.round(left) + 'px';
+        taskHoverCard.style.top = Math.round(top) + 'px';
+      }
+
+      function closeTaskContextMenu() {
+        if (!openMenuSessionID && (!taskContextMenu || taskContextMenu.hidden)) return;
+        openMenuSessionID = 0;
+        if (taskContextMenu) taskContextMenu.hidden = true;
+        renderTaskList();
+      }
+
+      function findSessionByID(id) {
+        for (var i = 0; i < sessionsList.length; i++) {
+          if (Number(sessionsList[i].id) === Number(id)) {
+            return sessionsList[i];
+          }
+        }
+        return null;
+      }
+
+      function openTaskContextMenu(anchorBtn, sess) {
+        if (!taskContextMenu || !anchorBtn || !sess) return;
+        hideTaskHoverCard();
+        openMenuSessionID = sess.id;
+        taskMenuPinLabel.textContent = sess.is_pinned ? '取消置顶' : '置顶';
+        renderTaskList();
+
+        taskContextMenu.style.left = '-9999px';
+        taskContextMenu.style.top = '-9999px';
+        taskContextMenu.hidden = false;
+
+        var rect = anchorBtn.getBoundingClientRect();
+        var menuRect = taskContextMenu.getBoundingClientRect();
+        var margin = 8;
+        var left = rect.right - menuRect.width;
+        if (left < margin) left = rect.left;
+        left = Math.max(margin, Math.min(left, window.innerWidth - menuRect.width - margin));
+        var top = rect.bottom + 4;
+        if (top + menuRect.height > window.innerHeight - margin) {
+          top = Math.max(margin, rect.top - menuRect.height - 4);
+        }
+        taskContextMenu.style.left = Math.round(left) + 'px';
+        taskContextMenu.style.top = Math.round(top) + 'px';
+      }
+
+      if (taskMenuPinBtn) {
+        taskMenuPinBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var target = findSessionByID(openMenuSessionID);
+          closeTaskContextMenu();
+          if (!target) return;
+          fetch('/api/sessions/' + target.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_pinned: !target.is_pinned })
+          })
+            .then(readJSONResponse)
+            .then(function () {
+              loadSessions();
+            })
+            .catch(function (err) {
+              showError('置顶操作失败：' + (err && err.message ? err.message : '未知错误'));
+            });
+        });
+      }
+
+      if (taskMenuRenameBtn) {
+        taskMenuRenameBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var target = findSessionByID(openMenuSessionID);
+          closeTaskContextMenu();
+          if (!target) return;
+          renamingSessionID = target.id;
+          renderTaskList();
+          var inputEl = taskListEl ? taskListEl.querySelector('.task-inline-input') : null;
+          if (inputEl) {
+            inputEl.focus();
+            inputEl.select();
+          }
+        });
+      }
+
+      if (taskMenuDeleteBtn) {
+        taskMenuDeleteBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var target = findSessionByID(openMenuSessionID);
+          closeTaskContextMenu();
+          if (!target) return;
+          if (!window.confirm('确认删除任务「' + (target.title || '未命名任务') + '」？删除后其历史问答与统计将一并移除。')) {
+            return;
+          }
+          fetch('/api/sessions/' + target.id, { method: 'DELETE' })
+            .then(readJSONResponse)
+            .then(function () {
+              if (Number(activeSessionID) === Number(target.id)) {
+                clearActiveSessionState();
+              }
+              loadSessions();
+              loadOnlineStats();
+            })
+            .catch(function (err) {
+              showError('删除任务失败：' + (err && err.message ? err.message : '未知错误'));
+            });
+        });
+      }
+
+      document.addEventListener('click', function (e) {
+        if (taskContextMenu && !taskContextMenu.hidden) {
+          if (!taskContextMenu.contains(e.target) && (!e.target.closest || !e.target.closest('.task-more-btn'))) {
+            closeTaskContextMenu();
+          }
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          if (taskContextMenu && !taskContextMenu.hidden) {
+            closeTaskContextMenu();
+          }
+          if (setupModal && !setupModal.hidden) {
+            closeSetupModal(true);
+          }
+        }
+      });
+
+      window.addEventListener('scroll', hideTaskHoverCard, true);
+      window.addEventListener('resize', function () {
+        hideTaskHoverCard();
+        closeTaskContextMenu();
+      });
+
+      if (tasksToggleBtn) {
+        tasksToggleBtn.addEventListener('click', function () {
+          tasksExpanded = !tasksExpanded;
+          renderTaskList();
+        });
+      }
+
+      function loadSessions() {
+        return fetch('/api/sessions', { method: 'GET' })
+          .then(readJSONResponse)
+          .then(function (data) {
+            sessionsList = (data && Array.isArray(data.sessions)) ? data.sessions : [];
+            if (tasksTotalCount) {
+              tasksTotalCount.textContent = String(sessionsList.length);
+            }
+            renderTaskList();
+          })
+          .catch(function () {
+            sessionsList = [];
+            if (tasksTotalCount) tasksTotalCount.textContent = '0';
+            renderTaskList();
+          });
+      }
+
+      function renderTaskList() {
+        if (!taskListEl) return;
+        taskListEl.textContent = '';
+
+        if (!sessionsList.length) {
+          var empty = document.createElement('div');
+          empty.className = 'empty-hint';
+          empty.style.padding = '8px 6px';
+          empty.style.fontSize = '12px';
+          empty.textContent = '暂无保存的任务，提问后将自动记录。';
+          taskListEl.appendChild(empty);
+          if (tasksToggleBtn) tasksToggleBtn.hidden = true;
+          return;
+        }
+
+        var visibleLimit = tasksExpanded ? sessionsList.length : Math.min(4, sessionsList.length);
+        for (var i = 0; i < visibleLimit; i++) {
+          (function (sess) {
+            var isActive = Number(sess.id) === Number(activeSessionID);
+            var isMenuOpen = Number(sess.id) === Number(openMenuSessionID);
+            var row = document.createElement('div');
+            row.className = 'task-row' + (isActive ? ' is-active' : '') + (isMenuOpen ? ' is-menu-open' : '');
+            row.setAttribute('data-session-id', String(sess.id));
+
+            var main = document.createElement('div');
+            main.className = 'task-row-main';
+
+            var svgNS = 'http' + '://www.w3.org/2000/svg';
+            if (sess.is_pinned) {
+              var pinSvg = document.createElementNS(svgNS, 'svg');
+              pinSvg.setAttribute('class', 'task-pin-icon');
+              pinSvg.setAttribute('viewBox', '0 0 24 24');
+              pinSvg.setAttribute('fill', 'none');
+              pinSvg.setAttribute('stroke', 'currentColor');
+              pinSvg.setAttribute('stroke-width', '2.2');
+              pinSvg.setAttribute('stroke-linecap', 'round');
+              pinSvg.setAttribute('stroke-linejoin', 'round');
+              var p1 = document.createElementNS(svgNS, 'path');
+              p1.setAttribute('d', 'M12 17v5');
+              var p2 = document.createElementNS(svgNS, 'path');
+              p2.setAttribute('d', 'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z');
+              pinSvg.appendChild(p1);
+              pinSvg.appendChild(p2);
+              main.appendChild(pinSvg);
+            }
+
+            if (Number(sess.id) === Number(renamingSessionID)) {
+              var inp = document.createElement('input');
+              inp.type = 'text';
+              inp.className = 'task-inline-input';
+              inp.maxLength = 80;
+              inp.value = sess.title || '';
+              var finished = false;
+
+              function finishRename(commit) {
+                if (finished) return;
+                finished = true;
+                var nextTitle = inp.value.trim();
+                renamingSessionID = 0;
+                if (!commit || !nextTitle || nextTitle === sess.title) {
+                  renderTaskList();
+                  return;
+                }
+                fetch('/api/sessions/' + sess.id, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title: nextTitle })
+                })
+                  .then(readJSONResponse)
+                  .then(function () {
+                    loadSessions();
+                  })
+                  .catch(function (err) {
+                    renderTaskList();
+                    showError('重命名失败：' + (err && err.message ? err.message : '未知错误'));
+                  });
+              }
+
+              inp.addEventListener('click', function (ev) { ev.stopPropagation(); });
+              inp.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter') {
+                  ev.preventDefault();
+                  finishRename(true);
+                } else if (ev.key === 'Escape') {
+                  ev.preventDefault();
+                  finishRename(false);
+                }
+              });
+              inp.addEventListener('blur', function () {
+                finishRename(true);
+              });
+              main.appendChild(inp);
+            } else {
+              var titleSpan = document.createElement('span');
+              titleSpan.className = 'task-row-title';
+              titleSpan.textContent = sess.title || '未命名任务';
+              main.appendChild(titleSpan);
+            }
+            row.appendChild(main);
+
+            var right = document.createElement('div');
+            right.className = 'task-row-right';
+
+            var timeSpan = document.createElement('span');
+            timeSpan.className = 'task-time';
+            timeSpan.textContent = formatShortTaskTime(sess.updated_at);
+            right.appendChild(timeSpan);
+
+            var moreBtn = document.createElement('button');
+            moreBtn.type = 'button';
+            moreBtn.className = 'task-more-btn';
+            moreBtn.setAttribute('aria-label', '任务操作菜单');
+            var moreSvg = document.createElementNS(svgNS, 'svg');
+            moreSvg.setAttribute('class', 'icon');
+            moreSvg.setAttribute('style', 'width:14px;height:14px');
+            moreSvg.setAttribute('viewBox', '0 0 24 24');
+            moreSvg.setAttribute('fill', 'currentColor');
+            var c1 = document.createElementNS(svgNS, 'circle');
+            c1.setAttribute('cx', '5'); c1.setAttribute('cy', '12'); c1.setAttribute('r', '1.8');
+            var c2 = document.createElementNS(svgNS, 'circle');
+            c2.setAttribute('cx', '12'); c2.setAttribute('cy', '12'); c2.setAttribute('r', '1.8');
+            var c3 = document.createElementNS(svgNS, 'circle');
+            c3.setAttribute('cx', '19'); c3.setAttribute('cy', '12'); c3.setAttribute('r', '1.8');
+            moreSvg.appendChild(c1);
+            moreSvg.appendChild(c2);
+            moreSvg.appendChild(c3);
+            moreBtn.appendChild(moreSvg);
+
+            moreBtn.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (Number(openMenuSessionID) === Number(sess.id)) {
+                closeTaskContextMenu();
+              } else {
+                openTaskContextMenu(moreBtn, sess);
+              }
+            });
+            right.appendChild(moreBtn);
+            row.appendChild(right);
+
+            row.addEventListener('mouseenter', function () {
+              hideTaskHoverCard();
+              hoverTaskTimer = setTimeout(function () {
+                showTaskHoverCardFor(row, sess);
+              }, 220);
+            });
+            row.addEventListener('mouseleave', function () {
+              hideTaskHoverCard();
+            });
+            row.addEventListener('click', function () {
+              if (isLoading || Number(renamingSessionID) === Number(sess.id)) return;
+              loadSessionDetail(sess.id);
+            });
+
+            taskListEl.appendChild(row);
+          })(sessionsList[i]);
+        }
+
+        if (tasksToggleBtn) {
+          if (sessionsList.length > 4) {
+            tasksToggleBtn.hidden = false;
+            tasksToggleBtn.textContent = tasksExpanded ? '收起' : ('查看更多 (' + (sessionsList.length - 4) + ')');
+          } else {
+            tasksToggleBtn.hidden = true;
+          }
+        }
+      }
+
+      function applySessionScope(sess) {
+        if (!sess) return;
+        if (sess.scope_mode === 'material') {
+          scopeMode = 'material';
+          selectedDocumentIDs = Array.isArray(sess.document_ids) ? sess.document_ids.slice() : [];
+          selectedProjectSlug = '';
+        } else {
+          scopeMode = 'topic';
+          selectedDocumentIDs = [];
+          var wantSlug = sess.project_slug || '';
+          var validProj = !wantSlug;
+          for (var i = 0; i < cachedProjects.length; i++) {
+            if (cachedProjects[i].slug === wantSlug) {
+              validProj = true;
+              break;
+            }
+          }
+          selectedProjectSlug = validProj ? wantSlug : '';
+        }
+        renderProjectBar(cachedProjects);
+        renderMaterialList();
+        syncScopeDisplay();
+      }
+
+      function loadSessionDetail(id) {
+        if (!id) return;
+        hideTaskHoverCard();
+        closeTaskContextMenu();
+        fetch('/api/sessions/' + id, { method: 'GET' })
+          .then(readJSONResponse)
+          .then(function (detail) {
+            if (!detail || !detail.session) return;
+            activeSessionID = detail.session.id;
+            currentTurns = Array.isArray(detail.turns) ? detail.turns : [];
+            errorBox.hidden = true;
+            errorBox.textContent = '';
+            pendingQuestionRow.hidden = true;
+
+            applySessionScope(detail.session);
+            setEmptyChatState(currentTurns.length === 0);
+            renderAllTurns();
+            renderSessionStats(detail.stats || computeSessionStats(currentTurns));
+            renderTaskList();
+            setRightPanelMode('citations');
+
+            var targetCitTurn = null;
+            for (var i = currentTurns.length - 1; i >= 0; i--) {
+              if (Array.isArray(currentTurns[i].citations) && currentTurns[i].citations.length > 0) {
+                targetCitTurn = currentTurns[i];
+                break;
+              }
+            }
+            if (targetCitTurn) {
+              renderTurnSources(targetCitTurn);
+            } else {
+              activeCitationTurnID = 0;
+              renderSources([], new Set());
+            }
+            setMobilePane('chat');
+            resultAreaEl.scrollTo({ top: resultAreaEl.scrollHeight, behavior: 'smooth' });
+          })
+          .catch(function (err) {
+            showError('加载会话详情失败：' + (err && err.message ? err.message : '未知错误'));
           });
       }
 
@@ -4119,53 +5582,37 @@
         syncQuestionInputHeight();
       }
 
-      function clearResults(keepQuestionBubble) {
-        if (!keepQuestionBubble) {
-          questionBubbleRow.hidden = true;
-          questionBubbleText.textContent = '';
-          questionBubbleMeta.textContent = '';
-          setEmptyChatState(true);
-        }
+      function clearActiveSessionState() {
+        activeSessionID = 0;
+        currentTurns = [];
+        activeCitationTurnID = 0;
+        if (chatTurnsListEl) chatTurnsListEl.textContent = '';
+        if (pendingQuestionRow) pendingQuestionRow.hidden = true;
+        if (pendingQuestionText) pendingQuestionText.textContent = '';
+        if (pendingQuestionMeta) pendingQuestionMeta.textContent = '';
         errorBox.hidden = true;
         errorBox.textContent = '';
-        ambiguityBox.hidden = true;
-        ambiguityCandidatesEl.textContent = '';
-        compareSection.hidden = true;
-        compareListEl.textContent = '';
-        refusalBox.hidden = true;
-        refusalDesc.textContent = DEFAULT_REFUSAL_DESC;
-        refusalFeedbackEl.hidden = true;
-        refusalFeedbackEl.textContent = '';
-        answerCard.hidden = true;
-        warningsBanner.hidden = true;
-        warningsList.textContent = '';
-        resolvedBadge.hidden = true;
-        resolvedBadge.textContent = '';
-        answerBody.textContent = '';
-        answerFeedbackEl.hidden = true;
-        answerFeedbackEl.textContent = '';
+        setEmptyChatState(true);
+        renderSessionStats();
+        renderTaskList();
         sourcesSection.hidden = true;
         sourcesList.textContent = '';
         sourcesEmpty.hidden = false;
         mobileSourcesCount.textContent = '';
         sourceCardStates = {};
-        lastAskContext = null;
       }
 
       clearChatBtn.addEventListener('click', function () {
         if (isLoading) return;
-        activeHistoryIndex = -1;
         questionInput.value = '';
         validationHint.hidden = true;
         validationHint.textContent = '';
-        renderSessionHistory();
-        clearResults(false);
+        clearActiveSessionState();
         setRightPanelMode('citations');
         questionInput.focus();
       });
 
       function showError(message) {
-        clearResults(true);
         errorBox.textContent = message;
         errorBox.hidden = false;
       }
@@ -4357,8 +5804,9 @@
         return out;
       }
 
-      function extractClaimTextForCiteButton(btn, answerText, n) {
-        var allSameBtns = answerBody.querySelectorAll('.cite-tag[data-cite-n="' + n + '"]');
+      function extractClaimTextForCiteButton(containerEl, btn, answerText, n) {
+        var root = containerEl || chatTurnsListEl;
+        var allSameBtns = root.querySelectorAll('.cite-tag[data-cite-n="' + n + '"]');
         var targetOcc = 0;
         for (var i = 0; i < allSameBtns.length; i++) {
           if (allSameBtns[i] === btn) {
@@ -4749,8 +6197,38 @@
         sourcesSection.hidden = false;
       }
 
-      function renderAmbiguity(amb, citations) {
-        ambiguityCandidatesEl.textContent = '';
+      var localTempTurnSeq = 0;
+
+      function renderTurnSources(turn) {
+        if (!turn) {
+          activeCitationTurnID = 0;
+          renderSources([], new Set());
+          return;
+        }
+        activeCitationTurnID = turn.id || 0;
+        var citations = Array.isArray(turn.citations) ? turn.citations : [];
+        var citedInAnswer = extractCitedNumbers(turn.answer || '');
+        setRightPanelMode('citations');
+        renderSources(citations, citedInAnswer);
+      }
+
+      function buildAmbiguityBoxEl(turn) {
+        var amb = turn.ambiguity;
+        var box = document.createElement('div');
+        box.className = 'ambiguity-box';
+
+        var title = document.createElement('p');
+        title.className = 'ambiguity-title';
+        title.textContent = '多个项目均检索到高相关结果，请明确所属项目';
+        box.appendChild(title);
+
+        var desc = document.createElement('p');
+        desc.className = 'ambiguity-desc';
+        desc.textContent = '不同项目对同一概念可能有不同规则，系统已拦截自动作答以避免张冠李戴。请选择项目：';
+        box.appendChild(desc);
+
+        var candsWrap = document.createElement('div');
+        candsWrap.className = 'ambiguity-candidates';
         var candidates = (amb && Array.isArray(amb.candidates)) ? amb.candidates : [];
         for (var i = 0; i < candidates.length; i++) {
           (function (cand) {
@@ -4758,10 +6236,10 @@
             btn.type = 'button';
             btn.className = 'ambiguity-btn';
 
-            var title = document.createElement('span');
-            title.className = 'ambiguity-btn-title';
-            title.textContent = (cand.project_name || cand.project_slug) + ' (' + cand.project_slug + ')';
-            btn.appendChild(title);
+            var tSpan = document.createElement('span');
+            tSpan.className = 'ambiguity-btn-title';
+            tSpan.textContent = (cand.project_name || cand.project_slug) + ' (' + cand.project_slug + ')';
+            btn.appendChild(tSpan);
 
             var meta = document.createElement('span');
             meta.className = 'ambiguity-btn-meta';
@@ -4777,21 +6255,48 @@
               renderProjectBar(cachedProjects);
               renderMaterialList();
               syncScopeDisplay();
-              loadChunkCount();
-              submitQuestion(false);
+              submitQuestion(false, turn.question, true);
             });
-            ambiguityCandidatesEl.appendChild(btn);
+            candsWrap.appendChild(btn);
           })(candidates[i]);
         }
-        ambiguityBox.hidden = false;
-        if (Array.isArray(citations) && citations.length > 0) {
-          setRightPanelMode('citations');
-          renderSources(citations, new Set());
-        }
+        box.appendChild(candsWrap);
+
+        var actions = document.createElement('div');
+        actions.className = 'ambiguity-actions';
+        var cmpBtn = document.createElement('button');
+        cmpBtn.type = 'button';
+        cmpBtn.className = 'btn-ghost-sm';
+        cmpBtn.textContent = '全部候选项目并排对照作答';
+        cmpBtn.addEventListener('click', function () {
+          if (isLoading) return;
+          submitQuestion(true, turn.question, true);
+        });
+        actions.appendChild(cmpBtn);
+        box.appendChild(actions);
+
+        return box;
       }
 
-      function renderComparisons(comparisons) {
-        compareListEl.textContent = '';
+      function buildCompareSectionEl(comparisons) {
+        var wrap = document.createElement('div');
+        wrap.className = 'compare-section';
+
+        var label = document.createElement('div');
+        label.className = 'section-label';
+        var labelLeft = document.createElement('span');
+        labelLeft.className = 'section-label-left';
+        labelLeft.textContent = '多项目并排独立对照';
+        var sub = document.createElement('span');
+        sub.className = 'section-sub';
+        sub.textContent = '由不同项目各自语料独立检索并作答，严禁混合来源';
+        labelLeft.appendChild(sub);
+        label.appendChild(labelLeft);
+        wrap.appendChild(label);
+
+        var grid = document.createElement('div');
+        grid.className = 'compare-grid';
+
         for (var i = 0; i < comparisons.length; i++) {
           var item = comparisons[i];
           var card = document.createElement('article');
@@ -4831,12 +6336,14 @@
           }
           renderAnswerBodyInto(body, item.answer, validSet);
           card.appendChild(body);
-          compareListEl.appendChild(card);
+          grid.appendChild(card);
         }
-        compareSection.hidden = false;
+
+        wrap.appendChild(grid);
+        return wrap;
       }
 
-      function highlightAndScrollToSource(n, claimText) {
+      function highlightAndScrollToSource(n, claimText, bodyEl) {
         setRightSidebarOpen(true);
         setRightPanelMode('citations');
         setMobilePane('sources');
@@ -4848,10 +6355,18 @@
         for (var i = 0; i < cards.length; i++) {
           cards[i].classList.remove('is-active', 'is-flash');
         }
-        var tags = answerBody.querySelectorAll('.cite-tag');
-        for (var j = 0; j < tags.length; j++) {
-          var same = Number(tags[j].getAttribute('data-cite-n')) === Number(n);
-          tags[j].classList.toggle('is-active', same);
+        if (chatTurnsListEl) {
+          var allTags = chatTurnsListEl.querySelectorAll('.cite-tag');
+          for (var t = 0; t < allTags.length; t++) {
+            allTags[t].classList.remove('is-active');
+          }
+        }
+        if (bodyEl) {
+          var tags = bodyEl.querySelectorAll('.cite-tag');
+          for (var j = 0; j < tags.length; j++) {
+            var same = Number(tags[j].getAttribute('data-cite-n')) === Number(n);
+            tags[j].classList.toggle('is-active', same);
+          }
         }
 
         var keys = Object.keys(sourceCardStates);
@@ -4891,21 +6406,84 @@
         (firstMark || targetCard).scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
 
-      answerBody.addEventListener('click', function (e) {
-        var btn = e.target.closest('.cite-tag');
-        if (!btn) return;
-        var n = Number(btn.getAttribute('data-cite-n'));
-        if (n > 0) {
-          var claimText = lastAskContext ? extractClaimTextForCiteButton(btn, lastAskContext.answer, n) : '';
-          highlightAndScrollToSource(n, claimText);
-        }
-      });
+      function buildShareableCitationText(turn) {
+        var lines = [];
+        lines.push('【问题】' + String(turn.question || '').trim());
+        lines.push('【结论】');
+        lines.push(String(turn.answer || '').trim());
 
-      function renderFeedbackBarInto(containerEl, ctx) {
-        containerEl.textContent = '';
-        if (!ctx || !ctx.question) {
-          containerEl.hidden = true;
-          return;
+        if (Array.isArray(turn.warnings) && turn.warnings.length > 0) {
+          lines.push('');
+          lines.push('⚠️ 规范时效警示：');
+          for (var wi = 0; wi < turn.warnings.length; wi++) {
+            var w = turn.warnings[wi];
+            if (w && w.message) {
+              lines.push('- ' + w.message);
+            }
+          }
+        }
+
+        if (Array.isArray(turn.citations) && turn.citations.length > 0) {
+          var citedNums = {};
+          var answerNoCode = String(turn.answer || '').replace(/```[\s\S]*?```/g, '');
+          var mRe = /\[(\d+)\]/g;
+          var match;
+          while ((match = mRe.exec(answerNoCode)) !== null) {
+            citedNums[Number(match[1])] = true;
+          }
+          var selected = [];
+          for (var ci = 0; ci < turn.citations.length; ci++) {
+            var cit = turn.citations[ci];
+            if (Object.keys(citedNums).length === 0 || citedNums[cit.n]) {
+              selected.push(cit);
+            }
+          }
+          if (selected.length === 0) {
+            selected = turn.citations;
+          }
+          lines.push('');
+          lines.push('【参考出处（可溯源）】');
+          for (var si = 0; si < selected.length; si++) {
+            var c = selected[si];
+            var title = c.doc_title || ('文档 #' + (c.document_id || c.chunk_id));
+            var proj = c.project_name || c.project_slug || '';
+            var statusTag = c.doc_status === 'deprecated' ? '｜已废弃' : '';
+            var meta = proj ? ('（' + proj + statusTag + '）') : (statusTag ? '（已废弃）' : '');
+            var heading = c.heading ? (' · ' + c.heading) : '';
+            lines.push('- [' + c.n + '] 《' + title + '》' + meta + heading);
+          }
+        }
+        return lines.join('\n');
+      }
+
+      function copyTextToClipboard(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (ok) resolve();
+            else reject(new Error('copy failed'));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+
+      function buildFeedbackBarEl(turn) {
+        var box = document.createElement('div');
+        box.className = 'feedback-bar';
+        if (!turn || !turn.question) {
+          return null;
         }
 
         var row = document.createElement('div');
@@ -4932,7 +6510,33 @@
         row.appendChild(upBtn);
         row.appendChild(downBtn);
         row.appendChild(statusSpan);
-        containerEl.appendChild(row);
+
+        if (!turn.refused && turn.project_resolved !== 'ambiguous' && Array.isArray(turn.citations) && turn.citations.length > 0) {
+          var copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'fb-vote-btn fb-copy-btn';
+          copyBtn.textContent = '📋 复制可信引用';
+          copyBtn.title = '复制带完整文档出处与废弃警示的结论，方便直接粘贴到飞书群或文档';
+          copyBtn.addEventListener('click', function () {
+            var payload = buildShareableCitationText(turn);
+            copyTextToClipboard(payload)
+              .then(function () {
+                copyBtn.textContent = '✓ 已复制出处';
+                setTimeout(function () {
+                  copyBtn.textContent = '📋 复制可信引用';
+                }, 2000);
+              })
+              .catch(function () {
+                copyBtn.textContent = '复制失败，请手动选中';
+                setTimeout(function () {
+                  copyBtn.textContent = '📋 复制可信引用';
+                }, 2000);
+              });
+          });
+          row.appendChild(copyBtn);
+        }
+
+        box.appendChild(row);
 
         var commentWrap = document.createElement('div');
         commentWrap.className = 'fb-comment-box';
@@ -4942,7 +6546,7 @@
         commentInput.type = 'text';
         commentInput.className = 'fb-comment-input';
         commentInput.maxLength = 500;
-        commentInput.placeholder = '可选备注：例如文档明明写了在第 3 节 / 遗漏了关键参数';
+        commentInput.placeholder = '可选备注：说明回答遗漏或有误之处…';
 
         var submitDownBtn = document.createElement('button');
         submitDownBtn.type = 'button';
@@ -4957,7 +6561,17 @@
         commentWrap.appendChild(commentInput);
         commentWrap.appendChild(submitDownBtn);
         commentWrap.appendChild(cancelDownBtn);
-        containerEl.appendChild(commentWrap);
+        box.appendChild(commentWrap);
+
+        if (turn.feedback_vote === 'up' || turn.feedback_vote === 'down') {
+          upBtn.disabled = true;
+          downBtn.disabled = true;
+          statusSpan.className = 'fb-status';
+          statusSpan.textContent = turn.feedback_vote === 'up'
+            ? '已评价：👍 准确'
+            : '已评价：👎 有问题/漏答（可在「盲区与反馈」审阅）';
+          statusSpan.hidden = false;
+        }
 
         function sendVote(vote, comment) {
           upBtn.disabled = true;
@@ -4968,27 +6582,44 @@
           statusSpan.textContent = '正在提交反馈…';
           statusSpan.hidden = false;
 
+          var retrievedIDs = Array.isArray(turn.retrieved_chunk_ids) ? turn.retrieved_chunk_ids.slice() : [];
+          if (retrievedIDs.length === 0 && Array.isArray(turn.citations)) {
+            for (var ci = 0; ci < turn.citations.length; ci++) {
+              if (typeof turn.citations[ci].chunk_id === 'number') {
+                retrievedIDs.push(turn.citations[ci].chunk_id);
+              }
+            }
+          }
+
+          var bodyObj = {
+            project_slug: turn.project_slug || turn.project_resolved || 'auto',
+            question: turn.question,
+            retrieved_chunk_ids: retrievedIDs,
+            answer: turn.answer || '',
+            refused: Boolean(turn.refused),
+            vote: vote,
+            comment: comment || ''
+          };
+          if (turn.id && turn.id > 0) {
+            bodyObj.turn_id = turn.id;
+          }
+
           fetch('/api/feedback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              project_slug: ctx.project_slug || 'auto',
-              question: ctx.question,
-              retrieved_chunk_ids: Array.isArray(ctx.retrieved_chunk_ids) ? ctx.retrieved_chunk_ids : [],
-              answer: ctx.answer || '',
-              refused: Boolean(ctx.refused),
-              vote: vote,
-              comment: comment || ''
-            })
+            body: JSON.stringify(bodyObj)
           })
             .then(readJSONResponse)
             .then(function () {
+              turn.feedback_vote = vote;
               commentWrap.hidden = true;
               statusSpan.className = 'fb-status';
               statusSpan.textContent = vote === 'up'
                 ? '感谢反馈！已记录为 👍 准确。'
-                : '已记录反馈，可在「盲区与反馈」页签审阅转正为活评测题。';
+                : '已记录反馈，可在「盲区与反馈」页面审阅并加入评测集。';
               statusSpan.hidden = false;
+              renderSessionStats();
+              loadOnlineStats();
             })
             .catch(function (err) {
               upBtn.disabled = false;
@@ -5019,140 +6650,150 @@
           sendVote('down', commentInput.value.trim());
         });
 
-        containerEl.hidden = false;
+        return box;
       }
 
-      function renderAskResponse(entry) {
-        var question = entry.question;
-        var scopeLabel = entry.scopeLabel;
-        var reqBody = entry.reqBody;
-        var data = entry.data;
-
-        setEmptyChatState(false);
-        questionBubbleText.textContent = question;
-        questionBubbleMeta.textContent = scopeLabel;
-        questionBubbleRow.hidden = false;
-        clearResults(true);
-
-        var citations = Array.isArray(data.citations) ? data.citations : [];
-
-        if (Array.isArray(data.comparisons) && data.comparisons.length > 0) {
-          renderComparisons(data.comparisons);
-          if (citations.length > 0) {
-            setRightPanelMode('citations');
-            renderSources(citations, new Set());
-          }
-          resultAreaEl.scrollTo({ top: 0, behavior: 'smooth' });
-          return;
+      function createTurnElement(turn) {
+        var block = document.createElement('article');
+        block.className = 'chat-turn-block';
+        if (turn.id) {
+          block.setAttribute('data-turn-id', String(turn.id));
         }
 
-        if (data.ambiguity && data.ambiguity.detected) {
-          renderAmbiguity(data.ambiguity, citations);
-          resultAreaEl.scrollTo({ top: 0, behavior: 'smooth' });
-          return;
+        var qRow = document.createElement('div');
+        qRow.className = 'question-bubble-row';
+        var qBubble = document.createElement('div');
+        qBubble.className = 'question-bubble';
+        qBubble.textContent = turn.question || '';
+        qRow.appendChild(qBubble);
+        var qMeta = document.createElement('span');
+        qMeta.className = 'question-meta';
+        qMeta.textContent = turn.scope_label || '自动识别';
+        qRow.appendChild(qMeta);
+        block.appendChild(qRow);
+
+        var citations = Array.isArray(turn.citations) ? turn.citations : [];
+        var comparisons = Array.isArray(turn.comparisons) ? turn.comparisons : [];
+        var amb = turn.ambiguity;
+
+        if (comparisons.length > 0) {
+          block.appendChild(buildCompareSectionEl(comparisons));
+          return block;
         }
 
-        var isRefused = Boolean(data.refused) || (data.answer.trim() === REFUSE_TEXT && citations.length === 0);
-        var retrievedIDs = Array.isArray(data.retrieved_chunk_ids) ? data.retrieved_chunk_ids.slice() : [];
-        if (retrievedIDs.length === 0 && citations.length > 0) {
-          for (var ci = 0; ci < citations.length; ci++) {
-            if (typeof citations[ci].chunk_id === 'number') {
-              retrievedIDs.push(citations[ci].chunk_id);
-            }
-          }
+        if (amb && amb.detected) {
+          block.appendChild(buildAmbiguityBoxEl(turn));
+          return block;
         }
-        var fbSlug = reqBody.project_slug || data.project_resolved || 'auto';
 
+        var isRefused = Boolean(turn.refused) || (String(turn.answer || '').trim() === REFUSE_TEXT && citations.length === 0);
         if (isRefused) {
-          if (data.answer && data.answer.indexOf('暂无资料') >= 0) {
-            refusalDesc.textContent = '当前指定范围尚无已入库资料，请先上传文档或切换其他主题/材料。';
-          } else {
-            refusalDesc.textContent = DEFAULT_REFUSAL_DESC;
-          }
-          refusalBox.hidden = false;
-          renderFeedbackBarInto(refusalFeedbackEl, {
-            project_slug: fbSlug,
-            question: question,
-            retrieved_chunk_ids: retrievedIDs,
-            answer: data.answer,
-            refused: true
-          });
-          resultAreaEl.scrollTo({ top: 0, behavior: 'smooth' });
-          return;
+          var refBox = document.createElement('section');
+          refBox.className = 'refusal-box';
+          var refTitle = document.createElement('h2');
+          refTitle.className = 'refusal-title';
+          refTitle.textContent = '文档中没有依据（系统已拒绝编造回答）';
+          refBox.appendChild(refTitle);
+          var refDescEl = document.createElement('p');
+          refDescEl.className = 'refusal-desc';
+          refDescEl.textContent = (turn.answer && String(turn.answer).indexOf('暂无资料') >= 0)
+            ? '当前指定范围尚无已入库资料，请先上传文档或切换其他主题/材料。'
+            : DEFAULT_REFUSAL_DESC;
+          refBox.appendChild(refDescEl);
+          var refFb = buildFeedbackBarEl(turn);
+          if (refFb) refBox.appendChild(refFb);
+          block.appendChild(refBox);
+          return block;
         }
+
+        var card = document.createElement('section');
+        card.className = 'answer-card';
+
+        if (Array.isArray(turn.warnings) && turn.warnings.length > 0) {
+          var wb = document.createElement('div');
+          wb.className = 'warnings-banner';
+          var wt = document.createElement('p');
+          wt.className = 'warnings-title';
+          wt.textContent = '废弃文档警示';
+          wb.appendChild(wt);
+          var wl = document.createElement('ul');
+          wl.className = 'warnings-list';
+          renderWarningsInto(wb, wl, turn.warnings);
+          wb.appendChild(wl);
+          card.appendChild(wb);
+        }
+
+        var secLabel = document.createElement('div');
+        secLabel.className = 'section-label';
+        var secLeft = document.createElement('div');
+        secLeft.className = 'section-label-left';
+        var sTitle = document.createElement('span');
+        sTitle.textContent = '回答 · 依据以下引用段落生成';
+        secLeft.appendChild(sTitle);
+        if (turn.project_resolved) {
+          var rBadge = document.createElement('span');
+          rBadge.className = 'resolved-badge';
+          rBadge.textContent = '来源范围：' + getProjectDisplayName(turn.project_resolved) + (turn.project_resolved !== 'shared' ? ' + 公共规范库' : '');
+          secLeft.appendChild(rBadge);
+        }
+        secLabel.appendChild(secLeft);
+
+        if (citations.length > 0) {
+          var jumpBtn = document.createElement('button');
+          jumpBtn.type = 'button';
+          jumpBtn.className = 'btn-ghost-sm';
+          jumpBtn.textContent = '查看右上引用 (' + citations.length + ') ↗';
+          jumpBtn.addEventListener('click', function () {
+            renderTurnSources(turn);
+            setRightSidebarOpen(true);
+            setRightPanelMode('citations');
+            setMobilePane('sources');
+            rightPaneScroll.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+          secLabel.appendChild(jumpBtn);
+        }
+        card.appendChild(secLabel);
 
         var validCitationSet = new Set();
-        for (var i = 0; i < citations.length; i++) {
-          validCitationSet.add(Number(citations[i].n));
-        }
-        var citedInAnswer = extractCitedNumbers(data.answer);
-
-        lastAskContext = {
-          question: question,
-          answer: data.answer,
-          project_slug: fbSlug,
-          retrieved_chunk_ids: retrievedIDs
-        };
-
-        renderWarningsInto(warningsBanner, warningsList, data.warnings);
-        if (data.project_resolved) {
-          resolvedBadge.textContent = '项目域：' + data.project_resolved + (data.project_resolved !== 'shared' ? ' + shared' : '');
-          resolvedBadge.hidden = false;
-        } else {
-          resolvedBadge.hidden = true;
+        for (var ci = 0; ci < citations.length; ci++) {
+          validCitationSet.add(Number(citations[ci].n));
         }
 
-        renderAnswerBodyInto(answerBody, data.answer, validCitationSet);
-        answerCard.hidden = false;
-        renderFeedbackBarInto(answerFeedbackEl, {
-          project_slug: fbSlug,
-          question: question,
-          retrieved_chunk_ids: retrievedIDs,
-          answer: data.answer,
-          refused: false
+        var bodyEl = document.createElement('div');
+        bodyEl.className = 'answer-body';
+        renderAnswerBodyInto(bodyEl, turn.answer || '', validCitationSet);
+        bodyEl.addEventListener('click', function (e) {
+          var btn = e.target.closest('.cite-tag');
+          if (!btn) return;
+          var n = Number(btn.getAttribute('data-cite-n'));
+          if (n > 0) {
+            if (activeCitationTurnID !== turn.id) {
+              renderTurnSources(turn);
+            }
+            var claimText = extractClaimTextForCiteButton(bodyEl, btn, turn.answer || '', n);
+            highlightAndScrollToSource(n, claimText, bodyEl);
+          }
         });
-        setRightPanelMode('citations');
-        renderSources(citations, citedInAnswer);
-        resultAreaEl.scrollTo({ top: 0, behavior: 'smooth' });
+        card.appendChild(bodyEl);
+
+        var ansFb = buildFeedbackBarEl(turn);
+        if (ansFb) card.appendChild(ansFb);
+        block.appendChild(card);
+
+        return block;
       }
 
-      function renderSessionHistory() {
-        var existing = sessionHistoryBar.querySelectorAll('.session-chip');
-        for (var i = 0; i < existing.length; i++) {
-          existing[i].remove();
+      function renderAllTurns() {
+        if (!chatTurnsListEl) return;
+        chatTurnsListEl.textContent = '';
+        for (var i = 0; i < currentTurns.length; i++) {
+          chatTurnsListEl.appendChild(createTurnElement(currentTurns[i]));
         }
-        if (sessionHistory.length <= 1) {
-          sessionHistoryBar.hidden = true;
-          return;
-        }
-        for (var idx = 0; idx < sessionHistory.length; idx++) {
-          (function (i) {
-            var item = sessionHistory[i];
-            var btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'session-chip' + (i === activeHistoryIndex ? ' is-active' : '');
-            btn.textContent = item.question;
-            btn.title = item.question + ' (' + item.scopeLabel + ')';
-            btn.addEventListener('click', function () {
-              if (isLoading) return;
-              activeHistoryIndex = i;
-              renderSessionHistory();
-              renderAskResponse(sessionHistory[i]);
-            });
-            sessionHistoryBar.appendChild(btn);
-          })(idx);
-        }
-        sessionHistoryBar.hidden = false;
       }
 
-      compareBtn.addEventListener('click', function () {
+      function submitQuestion(compareMode, overrideQuestion, keepActiveSession) {
         if (isLoading) return;
-        submitQuestion(true);
-      });
-
-      function submitQuestion(compareMode) {
-        if (isLoading) return;
-        var question = questionInput.value.trim();
+        var question = typeof overrideQuestion === 'string' ? overrideQuestion.trim() : questionInput.value.trim();
         if (!question) {
           validationHint.textContent = '请输入问题后再提问。';
           validationHint.hidden = false;
@@ -5162,20 +6803,30 @@
         validationHint.hidden = true;
         validationHint.textContent = '';
 
+        if (keepActiveSession === false) {
+          activeSessionID = 0;
+        }
+
         var scopeLabel = compareMode ? '多项目并排对照' : describeCurrentScope();
         setEmptyChatState(false);
-        questionBubbleText.textContent = question;
-        questionBubbleMeta.textContent = scopeLabel;
-        questionBubbleRow.hidden = false;
-        clearResults(true);
+        pendingQuestionText.textContent = question;
+        pendingQuestionMeta.textContent = scopeLabel;
+        pendingQuestionRow.hidden = false;
+        errorBox.hidden = true;
+        errorBox.textContent = '';
         setLoading(true);
         setMobilePane('chat');
+        resultAreaEl.scrollTo({ top: resultAreaEl.scrollHeight, behavior: 'smooth' });
 
         var reqBody = {
           question: question,
           project_slug: compareMode ? 'auto' : (scopeMode === 'topic' ? selectedProjectSlug : ''),
-          compare: Boolean(compareMode)
+          compare: Boolean(compareMode),
+          scope_label: scopeLabel
         };
+        if (activeSessionID > 0) {
+          reqBody.session_id = activeSessionID;
+        }
         if (!compareMode && scopeMode === 'material' && selectedDocumentIDs.length > 0) {
           reqBody.document_ids = selectedDocumentIDs.slice();
         }
@@ -5185,44 +6836,68 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(reqBody)
         })
-          .then(function (resp) {
-            return resp.text().then(function (rawText) {
-              var payload = null;
-              try {
-                payload = rawText ? JSON.parse(rawText) : null;
-              } catch (_) {
-                payload = null;
-              }
-              if (!resp.ok) {
-                var serverErr = payload && payload.error ? payload.error : ('HTTP ' + resp.status);
-                throw new Error(serverErr);
-              }
-              if (!payload || typeof payload.answer !== 'string') {
-                throw new Error('服务端返回格式异常');
-              }
-              return payload;
-            });
-          })
+          .then(readJSONResponse)
           .then(function (data) {
-            setLoading(false);
-            var entry = {
-              question: question,
-              scopeLabel: scopeLabel,
-              reqBody: reqBody,
-              data: data
-            };
-            sessionHistory.unshift(entry);
-            if (sessionHistory.length > 8) {
-              sessionHistory.pop();
+            if (!data || typeof data.answer !== 'string') {
+              throw new Error('返回数据格式异常，请稍后重试');
             }
-            activeHistoryIndex = 0;
-            renderSessionHistory();
-            renderAskResponse(entry);
+            setLoading(false);
+            pendingQuestionRow.hidden = true;
+            if (!overrideQuestion) {
+              questionInput.value = '';
+              syncQuestionInputHeight();
+            }
+
+            if (data.session_id && data.session_id > 0) {
+              activeSessionID = data.session_id;
+            }
+            var turnID = (data.turn_id && data.turn_id > 0) ? data.turn_id : (--localTempTurnSeq);
+
+            var citations = Array.isArray(data.citations) ? data.citations : [];
+            var retrievedIDs = Array.isArray(data.retrieved_chunk_ids) ? data.retrieved_chunk_ids.slice() : [];
+            if (retrievedIDs.length === 0 && citations.length > 0) {
+              for (var ci = 0; ci < citations.length; ci++) {
+                if (typeof citations[ci].chunk_id === 'number') {
+                  retrievedIDs.push(citations[ci].chunk_id);
+                }
+              }
+            }
+
+            var turnObj = {
+              id: turnID,
+              session_id: activeSessionID,
+              question: question,
+              project_slug: reqBody.project_slug || data.project_resolved || 'auto',
+              scope_label: scopeLabel,
+              answer: data.answer,
+              citations: citations,
+              retrieved_chunk_ids: retrievedIDs,
+              warnings: Array.isArray(data.warnings) ? data.warnings : [],
+              comparisons: Array.isArray(data.comparisons) ? data.comparisons : [],
+              ambiguity: data.ambiguity || null,
+              project_resolved: data.project_resolved || '',
+              refused: Boolean(data.refused) || (String(data.answer).trim() === REFUSE_TEXT && citations.length === 0),
+              retried: Boolean(data.retried),
+              citation_ok: (typeof data.citation_ok === 'boolean') ? data.citation_ok : null,
+              feedback_vote: null
+            };
+
+            currentTurns.push(turnObj);
+            var turnEl = createTurnElement(turnObj);
+            chatTurnsListEl.appendChild(turnEl);
+            renderSessionStats();
+            renderTurnSources(turnObj);
+            loadSessions();
+            loadOnlineStats();
+            turnEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
           })
           .catch(function (err) {
             setLoading(false);
-            var msg = err && err.message ? err.message : '网络异常，请检查服务是否启动';
+            var msg = err && err.message ? err.message : '网络异常，请确认服务连接正常';
             showError('请求失败：' + msg);
+            if (err && err.setupRequired) {
+              openSetupModal(msg, 'is-warn');
+            }
           });
       }
 
@@ -5369,7 +7044,9 @@
       function uploadSingleFile(file, projectSlug, docLevel, owner, overwrite) {
         var fd = new FormData();
         fd.append('file', file);
-        fd.append('project_slug', projectSlug || 'go-gin');
+        if (projectSlug) {
+          fd.append('project_slug', projectSlug);
+        }
         fd.append('doc_level', docLevel || 'spec');
         if (owner) fd.append('owner', owner);
         if (overwrite) fd.append('overwrite', 'true');
@@ -5391,7 +7068,11 @@
 
         clearQuickMsg();
         var filesToSend = pendingQuickFiles.slice();
-        var targetProj = quickUploadProject.value || 'go-gin';
+        var targetProj = quickUploadProject.value || getDefaultUploadProjectSlug();
+        if (!targetProj) {
+          showQuickMsg('is-err', '请先在「资料库治理」中新建项目空间后再上传文档。', 5000);
+          return;
+        }
         var targetLevel = quickUploadLevel.value || 'spec';
         var forceOverwrite = Boolean(quickUploadOverwrite.checked);
 
@@ -5399,6 +7080,7 @@
         var okCount = 0;
         var skipCount = 0;
         var failMsgs = [];
+        var needSetupErr = '';
         var lastReg = null;
         var total = filesToSend.length;
         var idx = 0;
@@ -5406,13 +7088,13 @@
         function nextFile() {
           if (idx >= total) {
             quickUploadBtn.disabled = false;
-            quickUploadBtn.textContent = '上传并切片入库';
+            quickUploadBtn.textContent = '上传入库';
 
             if (failMsgs.length === 0) {
               pendingQuickFiles = [];
               renderQuickFileList();
               if (total === 1 && skipCount === 1) {
-                showQuickMsg('is-warn', '文档内容未变更，已跳过重复导入（如需重切可勾选强制覆盖重切）。', 5000);
+                showQuickMsg('is-warn', '文档内容未变化，已跳过重复上传（如需更新可勾选「强制覆盖重切」）。', 5000);
               } else {
                 var okSummary = total === 1
                   ? '入库成功：' + filesToSend[0].name
@@ -5422,20 +7104,22 @@
             } else {
               var partial = '完成 ' + (okCount + skipCount) + '/' + total + ' 篇；失败 ' + failMsgs.length + ' 篇：' + failMsgs.join('；');
               showQuickMsg('is-err', partial, 0);
+              if (needSetupErr) {
+                openSetupModal(needSetupErr, 'is-warn');
+              }
             }
 
             if (lastReg) {
               renderRegressionInto(quickUploadReg, lastReg);
             }
-            loadChunkCount();
             loadProjects().then(loadMaterialsForSidebar);
             return;
           }
 
           var cur = filesToSend[idx];
           quickUploadBtn.textContent = total > 1
-            ? ('入库中 (' + (idx + 1) + '/' + total + ')...')
-            : '解析切片中...';
+            ? ('上传中 (' + (idx + 1) + '/' + total + ')...')
+            : '上传处理中...';
 
           uploadSingleFile(cur, targetProj, targetLevel, '', forceOverwrite)
             .then(function (res) {
@@ -5451,7 +7135,11 @@
               nextFile();
             })
             .catch(function (err) {
-              failMsgs.push(cur.name + ' (' + (err && err.message ? err.message : '失败') + ')');
+              var msg = err && err.message ? err.message : '失败';
+              if (err && err.setupRequired && !needSetupErr) {
+                needSetupErr = msg;
+              }
+              failMsgs.push(cur.name + ' (' + msg + ')');
               idx++;
               nextFile();
             });
@@ -5497,7 +7185,6 @@
       var docsPreviewBox = document.getElementById('docs-preview-box');
 
       var projectForm = document.getElementById('project-form');
-      var projSlugInput = document.getElementById('proj-slug');
       var projNameInput = document.getElementById('proj-name');
       var projDescInput = document.getElementById('proj-desc');
       var projSubmitBtn = document.getElementById('proj-submit');
@@ -5566,12 +7253,12 @@
         }
         if (toggleDocsRightBtn) {
           toggleDocsRightBtn.classList.toggle('is-active', rightSidebarOpen);
-          toggleDocsRightBtn.setAttribute('title', rightSidebarOpen ? '收起右侧热入库与切片预览栏' : '展开右侧热入库与切片预览栏');
+          toggleDocsRightBtn.setAttribute('title', rightSidebarOpen ? '收起右侧上传与预览栏' : '展开右侧上传与预览栏');
           toggleDocsRightBtn.setAttribute('aria-expanded', rightSidebarOpen ? 'true' : 'false');
         }
         if (toggleRadarRightBtn) {
           toggleRadarRightBtn.classList.toggle('is-active', rightSidebarOpen);
-          toggleRadarRightBtn.setAttribute('title', rightSidebarOpen ? '收起右侧审阅与转正面板' : '展开右侧审阅与转正面板');
+          toggleRadarRightBtn.setAttribute('title', rightSidebarOpen ? '收起右侧详情与处理栏' : '展开右侧详情与处理栏');
           toggleRadarRightBtn.setAttribute('aria-expanded', rightSidebarOpen ? 'true' : 'false');
         }
       }
@@ -5637,13 +7324,13 @@
           loadProjects().then(loadDocuments);
         } else if (name === 'radar') {
           loadProjects().then(function () {
-            loadGaps();
-            loadFeedback();
+            loadGaps().then(loadFeedback);
+            loadOnlineStats();
           });
         } else {
           loadProjects();
           loadMaterialsForSidebar();
-          loadChunkCount();
+          loadSessions();
         }
       }
 
@@ -5688,25 +7375,18 @@
           return btn;
         }
 
-        docsProjectNav.appendChild(createNavChip('', '全部项目空间', totalChunks + ' 段'));
+        docsProjectNav.appendChild(createNavChip('', '全部项目', totalChunks + ' 段'));
         for (var j = 0; j < projects.length; j++) {
           var p = projects[j];
           var pMeta = (typeof p.doc_count === 'number' ? (p.doc_count + '篇/') : '') + (p.chunk_count || 0) + '段';
-          docsProjectNav.appendChild(createNavChip(p.slug, p.name + ' (' + p.slug + ')', pMeta));
+          docsProjectNav.appendChild(createNavChip(p.slug, p.name, pMeta));
         }
 
         if (docsActiveProjPill) {
           if (!currentSlug) {
             docsActiveProjPill.textContent = '全部空间';
           } else {
-            var foundName = currentSlug;
-            for (var k = 0; k < projects.length; k++) {
-              if (projects[k].slug === currentSlug) {
-                foundName = projects[k].name;
-                break;
-              }
-            }
-            docsActiveProjPill.textContent = foundName;
+            docsActiveProjPill.textContent = getProjectDisplayName(currentSlug);
           }
         }
       }
@@ -5725,11 +7405,21 @@
           .then(function (data) {
             var list = (data && Array.isArray(data.projects)) ? data.projects : [];
             cachedProjects = list;
+            if (selectedProjectSlug) {
+              var foundSel = false;
+              for (var s = 0; s < list.length; s++) {
+                if (list[s].slug === selectedProjectSlug) {
+                  foundSel = true;
+                  break;
+                }
+              }
+              if (!foundSel) selectedProjectSlug = '';
+            }
             renderProjectBar(list);
             syncScopeDisplay();
 
-            var prevUpload = uploadProjectSelect.value || 'go-gin';
-            var prevQuickUpload = quickUploadProject.value || 'go-gin';
+            var prevUpload = uploadProjectSelect.value || '';
+            var prevQuickUpload = quickUploadProject.value || '';
             var prevFilter = filterProjectSelect.value || '';
             var prevGapProj = gapsFilterProject.value || '';
 
@@ -5750,40 +7440,51 @@
 
             var gapAutoOpt = document.createElement('option');
             gapAutoOpt.value = 'auto';
-            gapAutoOpt.textContent = '自动路由（auto）';
+            gapAutoOpt.textContent = '自动识别';
             gapsFilterProject.appendChild(gapAutoOpt);
 
-            for (var i = 0; i < list.length; i++) {
-              var p = list[i];
-              var uo = document.createElement('option');
-              uo.value = p.slug;
-              uo.textContent = p.name + ' (' + p.slug + ')';
-              uploadProjectSelect.appendChild(uo);
+            if (list.length === 0) {
+              var emptyUO = document.createElement('option');
+              emptyUO.value = '';
+              emptyUO.textContent = '请先在右侧/治理页新建项目';
+              uploadProjectSelect.appendChild(emptyUO);
 
-              var qo = document.createElement('option');
-              qo.value = p.slug;
-              qo.textContent = p.name + ' (' + p.slug + ')';
-              quickUploadProject.appendChild(qo);
+              var emptyQO = document.createElement('option');
+              emptyQO.value = '';
+              emptyQO.textContent = '暂无项目，请先新建';
+              quickUploadProject.appendChild(emptyQO);
+            } else {
+              for (var i = 0; i < list.length; i++) {
+                var p = list[i];
+                var uo = document.createElement('option');
+                uo.value = p.slug;
+                uo.textContent = p.name;
+                uploadProjectSelect.appendChild(uo);
 
-              var fo = document.createElement('option');
-              fo.value = p.slug;
-              var docCntTxt = typeof p.doc_count === 'number' ? (p.doc_count + '篇/') : '';
-              fo.textContent = p.name + ' (' + docCntTxt + (p.chunk_count || 0) + '段)';
-              filterProjectSelect.appendChild(fo);
+                var qo = document.createElement('option');
+                qo.value = p.slug;
+                qo.textContent = p.name;
+                quickUploadProject.appendChild(qo);
 
-              var go = document.createElement('option');
-              go.value = p.slug;
-              go.textContent = p.name + ' (' + p.slug + ')';
-              gapsFilterProject.appendChild(go);
+                var fo = document.createElement('option');
+                fo.value = p.slug;
+                fo.textContent = p.name;
+                filterProjectSelect.appendChild(fo);
+
+                var go = document.createElement('option');
+                go.value = p.slug;
+                go.textContent = p.name;
+                gapsFilterProject.appendChild(go);
+              }
             }
 
             uploadProjectSelect.value = prevUpload;
             if (!uploadProjectSelect.value && list.length > 0) {
-              uploadProjectSelect.value = list[0].slug;
+              uploadProjectSelect.value = getDefaultUploadProjectSlug();
             }
             quickUploadProject.value = prevQuickUpload;
             if (!quickUploadProject.value && list.length > 0) {
-              quickUploadProject.value = list[0].slug;
+              quickUploadProject.value = getDefaultUploadProjectSlug();
             }
             filterProjectSelect.value = prevFilter;
             gapsFilterProject.value = prevGapProj;
@@ -5794,9 +7495,13 @@
           });
       }
 
-      loadChunkCount();
-      loadProjects();
-      loadMaterialsForSidebar();
+      loadSetupStatus(true);
+      loadProjects().then(function () {
+        loadSessions();
+        loadMaterialsForSidebar();
+      });
+      loadOnlineStats();
+      renderSessionStats();
 
       function updateDocsKPIs(docs) {
         var total = docs.length;
@@ -5881,19 +7586,19 @@
             var st = (doc && (doc.status || doc.doc_status)) || 'active';
             var stBadge = document.createElement('span');
             stBadge.className = 'doc-badge ' + (st === 'deprecated' ? 'is-deprecated' : 'is-active');
-            stBadge.textContent = st === 'deprecated' ? '已废弃 deprecated' : '生效中 active';
+            stBadge.textContent = st === 'deprecated' ? '已废弃' : '生效中';
             badgeRow.appendChild(stBadge);
 
             if (doc && (doc.project_name || doc.project_slug)) {
               var pBadge = document.createElement('span');
               pBadge.className = 'doc-badge is-fmt';
-              pBadge.textContent = doc.project_name || doc.project_slug;
+              pBadge.textContent = doc.project_name || getProjectDisplayName(doc.project_slug);
               badgeRow.appendChild(pBadge);
             }
 
             var lvlBadge = document.createElement('span');
             lvlBadge.className = 'doc-badge';
-            lvlBadge.textContent = (doc && doc.doc_level) || 'spec';
+            lvlBadge.textContent = formatDocLevelLabel((doc && doc.doc_level) || 'spec');
             badgeRow.appendChild(lvlBadge);
 
             var cntBadge = document.createElement('span');
@@ -5911,7 +7616,7 @@
             var askThisBtn = document.createElement('button');
             askThisBtn.type = 'button';
             askThisBtn.className = 'btn-primary-sm';
-            askThisBtn.textContent = '仅针对此材料去问答提问';
+            askThisBtn.textContent = '仅针对此文档提问';
             askThisBtn.addEventListener('click', function () {
               switchTab('ask');
               selectedDocumentIDs = [Number(docId)];
@@ -5994,7 +7699,7 @@
         if (!filtered.length) {
           var empty = document.createElement('div');
           empty.className = 'empty-hint';
-          empty.textContent = '当前筛选条件下暂无文档，可点击右上角「+ 热入库」或在右侧抽屉上传新文档。';
+          empty.textContent = '当前筛选条件下暂无文档，可点击右上角「+ 上传文档」导入新资料。';
           docsList.appendChild(empty);
           return;
         }
@@ -6047,7 +7752,7 @@
             colProj.appendChild(projSpan);
             var levelBadge = document.createElement('span');
             levelBadge.className = 'doc-badge';
-            levelBadge.textContent = doc.doc_level || 'spec';
+            levelBadge.textContent = formatDocLevelLabel(doc.doc_level || 'spec');
             colProj.appendChild(levelBadge);
             row.appendChild(colProj);
 
@@ -6082,8 +7787,7 @@
             var askDocBtn = document.createElement('button');
             askDocBtn.type = 'button';
             askDocBtn.className = 'btn-ghost-sm';
-            askDocBtn.textContent = '问答';
-            askDocBtn.title = '在智能问答中针对该材料查看与提问';
+            askDocBtn.textContent = '去提问';
             askDocBtn.addEventListener('click', function (ev) {
               ev.stopPropagation();
               switchTab('ask');
@@ -6125,7 +7829,7 @@
                 })
                   .then(readJSONResponse)
                   .then(function () {
-                    showGovMsg(docsMsg, 'is-ok', '文档 #' + doc.id + ' 替代文档已更新');
+                    showGovMsg(docsMsg, 'is-ok', '已更新替代文档');
                     loadDocuments();
                   })
                   .catch(function (err) {
@@ -6151,7 +7855,7 @@
               })
                 .then(readJSONResponse)
                 .then(function () {
-                  showGovMsg(docsMsg, 'is-ok', '文档 #' + doc.id + ' 状态已更新为 ' + nextStatus);
+                  showGovMsg(docsMsg, 'is-ok', '文档状态已更新为' + (nextStatus === 'deprecated' ? '已废弃' : '生效中'));
                   loadDocuments();
                 })
                 .catch(function (err) {
@@ -6181,7 +7885,6 @@
                     kind = 'is-warn';
                   }
                   showGovMsg(docsMsg, kind, msg);
-                  loadChunkCount();
                   loadProjects().then(loadDocuments);
                 })
                 .catch(function (err) {
@@ -6214,24 +7917,24 @@
       projectForm.addEventListener('submit', function (e) {
         e.preventDefault();
         projMsg.hidden = true;
-        var slug = projSlugInput.value.trim();
         var name = projNameInput.value.trim();
         var desc = projDescInput.value.trim();
-        if (!slug || !name) {
-          showGovMsg(projMsg, 'is-err', '请填写项目标识（slug）与项目名称。');
+        if (!name) {
+          showGovMsg(projMsg, 'is-err', '请填写项目名称。');
+          projNameInput.focus();
           return;
         }
         projSubmitBtn.disabled = true;
         fetch('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: slug, name: name, description: desc })
+          body: JSON.stringify({ name: name, description: desc })
         })
           .then(readJSONResponse)
           .then(function (created) {
             projSubmitBtn.disabled = false;
             projectForm.reset();
-            showGovMsg(projMsg, 'is-ok', '项目空间创建成功：' + created.name + ' (' + created.slug + ')');
+            showGovMsg(projMsg, 'is-ok', '项目空间创建成功：' + created.name);
             loadProjects().then(function () {
               uploadProjectSelect.value = created.slug;
               quickUploadProject.value = created.slug;
@@ -6297,7 +8000,7 @@
         if (details.length === 0) {
           var emptyNote = document.createElement('div');
           emptyNote.className = 'reg-detail-meta';
-          emptyNote.textContent = '该文档暂无关联金标评测题，未触发回归题目。';
+          emptyNote.textContent = '该文档暂未关联评测题，本次未触发回归测试。';
           containerEl.appendChild(emptyNote);
           containerEl.hidden = false;
           return;
@@ -6325,11 +8028,11 @@
 
           var metaParts = [];
           if (d.question_set) metaParts.push('评测集：' + d.question_set);
-          if (d.project_slug) metaParts.push('项目：' + d.project_slug);
+          if (d.project_slug) metaParts.push('项目：' + getProjectDisplayName(d.project_slug));
           if (d.old_gold_chunk_id && d.new_gold_chunk_id) {
-            metaParts.push('切片重绑：#' + d.old_gold_chunk_id + ' → #' + d.new_gold_chunk_id);
+            metaParts.push('对应段落更新：#' + d.old_gold_chunk_id + ' → #' + d.new_gold_chunk_id);
           } else if (d.old_gold_chunk_id && !d.new_gold_chunk_id && !d.should_refuse) {
-            metaParts.push('原切片：#' + d.old_gold_chunk_id + '（未重绑）');
+            metaParts.push('原对应段落：#' + d.old_gold_chunk_id + '（未重新关联）');
           }
           if (d.reason) metaParts.push(d.reason);
           if (metaParts.length > 0) {
@@ -6356,7 +8059,11 @@
           return;
         }
 
-        var proj = uploadProjectSelect.value || 'go-gin';
+        var proj = uploadProjectSelect.value || getDefaultUploadProjectSlug();
+        if (!proj) {
+          showGovMsg(uploadMsg, 'is-err', '请先新建项目空间后再上传文档。');
+          return;
+        }
         var lvl = uploadLevelSelect.value || 'spec';
         var owner = uploadOwnerInput.value.trim();
         var overwrite = Boolean(uploadOverwriteInput.checked);
@@ -6365,35 +8072,38 @@
         var okCnt = 0;
         var skipCnt = 0;
         var failList = [];
+        var needSetupGovErr = '';
         var lastReg = null;
         var idx = 0;
 
         function nextGovFile() {
           if (idx >= files.length) {
             uploadSubmitBtn.disabled = false;
-            uploadSubmitBtn.textContent = '上传并切片入库';
+            uploadSubmitBtn.textContent = '上传入库';
             if (failList.length === 0) {
               uploadFileInput.value = '';
               if (files.length === 1 && skipCnt === 1) {
-                showGovMsg(uploadMsg, 'is-warn', files[0].name + ' 内容未变更，已跳过重复导入。');
+                showGovMsg(uploadMsg, 'is-warn', files[0].name + ' 内容未变化，已跳过重复上传。');
               } else {
                 showGovMsg(uploadMsg, 'is-ok', '入库完成：新增/更新 ' + okCnt + ' 篇' + (skipCnt > 0 ? ('，跳过未变更 ' + skipCnt + ' 篇') : '') + '。');
               }
             } else {
               showGovMsg(uploadMsg, 'is-err', '完成 ' + (okCnt + skipCnt) + '/' + files.length + ' 篇；失败：' + failList.join('；'));
+              if (needSetupGovErr) {
+                openSetupModal(needSetupGovErr, 'is-warn');
+              }
             }
             if (lastReg) {
               renderRegressionInto(uploadRegressionEl, lastReg);
             }
-            loadChunkCount();
             loadProjects().then(loadDocuments);
             return;
           }
 
           var cur = files[idx];
           uploadSubmitBtn.textContent = files.length > 1
-            ? ('解析切片中 (' + (idx + 1) + '/' + files.length + ')...')
-            : '解析切片中...';
+            ? ('上传处理中 (' + (idx + 1) + '/' + files.length + ')...')
+            : '上传处理中...';
 
           uploadSingleFile(cur, proj, lvl, owner, overwrite)
             .then(function (res) {
@@ -6404,7 +8114,11 @@
               nextGovFile();
             })
             .catch(function (err) {
-              failList.push(cur.name + ' (' + (err && err.message ? err.message : '失败') + ')');
+              var em = err && err.message ? err.message : '失败';
+              if (err && err.setupRequired && !needSetupGovErr) {
+                needSetupGovErr = em;
+              }
+              failList.push(cur.name + ' (' + em + ')');
               idx++;
               nextGovFile();
             });
@@ -6431,9 +8145,9 @@
       }
 
       function formatGapStatusLabel(st) {
-        if (st === 'open') return '待补充 open';
-        if (st === 'resolved') return '已解决 resolved';
-        if (st === 'ignored') return '已忽略 ignored';
+        if (st === 'open') return '待补充';
+        if (st === 'resolved') return '已解决';
+        if (st === 'ignored') return '已忽略';
         return st || '';
       }
 
@@ -6449,11 +8163,11 @@
         }
         if (radarActiveViewPill) {
           if (currentRadarView === 'gaps') {
-            radarActiveViewPill.textContent = '分拣视图：团队知识盲区雷达';
+            radarActiveViewPill.textContent = '知识盲区';
           } else if (currentRadarView === 'feedback') {
-            radarActiveViewPill.textContent = '分拣视图：用户反馈与活评测转正';
+            radarActiveViewPill.textContent = '用户反馈';
           } else {
-            radarActiveViewPill.textContent = '分拣视图：全部队列（盲区 + 反馈）';
+            radarActiveViewPill.textContent = '全部待办';
           }
         }
       }
@@ -6471,6 +8185,7 @@
         radarRefreshAllBtn.addEventListener('click', function () {
           loadGaps();
           loadFeedback();
+          loadOnlineStats();
         });
       }
 
@@ -6557,12 +8272,12 @@
 
         var scoreTxt = typeof gap.top1_final === 'number' ? gap.top1_final.toFixed(3) : '0.000';
         var rows = [
-          ['项目域路由', gap.project_slug || 'auto'],
-          ['Top1 融合得分', scoreTxt],
-          ['最近近似文档', gap.nearest_doc_title || gap.nearest_doc_filename || '暂无高相关文档'],
-          ['近似段落章节', gap.nearest_heading || '未定位章节'],
+          ['所属项目', getProjectDisplayName(gap.project_slug)],
+          ['最高匹配分', scoreTxt],
+          ['最接近文档', gap.nearest_doc_title || gap.nearest_doc_filename || '暂无高相关文档'],
+          ['接近章节', gap.nearest_heading || '未定位'],
           ['文档负责人', gap.nearest_doc_owner || '未指定'],
-          ['最近触发时间', gap.last_asked_at ? String(gap.last_asked_at).slice(0, 19).replace('T', ' ') : '-']
+          ['最近提问时间', gap.last_asked_at ? String(gap.last_asked_at).slice(0, 19).replace('T', ' ') : '-']
         ];
         for (var r = 0; r < rows.length; r++) {
           var rowEl = document.createElement('div');
@@ -6648,20 +8363,27 @@
         pHead.className = 'side-section-head';
         var pTitle = document.createElement('h4');
         pTitle.className = 'side-section-title';
-        pTitle.textContent = '转正为活评测题（question_set=feedback）';
+        var pTitleSpan = document.createElement('span');
+        pTitleSpan.textContent = '加入回归评测集';
+        pTitle.appendChild(pTitleSpan);
+        pTitle.appendChild(createInfoTooltip('确认标准答案并入库到 feedback 活评测集，后续可一键回归验证。', 'is-down'));
         pHead.appendChild(pTitle);
         promotePanel.appendChild(pHead);
 
+        var refuseRow = document.createElement('div');
+        refuseRow.className = 'overwrite-row';
         var refuseLabel = document.createElement('label');
         refuseLabel.className = 'gov-checkbox';
         var refuseChk = document.createElement('input');
         refuseChk.type = 'checkbox';
         refuseChk.checked = Boolean(fb.refused);
         var refuseTxt = document.createElement('span');
-        refuseTxt.textContent = '应拒答题（should_refuse）';
+        refuseTxt.textContent = '本题应拒答';
         refuseLabel.appendChild(refuseChk);
         refuseLabel.appendChild(refuseTxt);
-        promotePanel.appendChild(refuseLabel);
+        refuseRow.appendChild(refuseLabel);
+        refuseRow.appendChild(createInfoTooltip('勾选表示语料中本无依据，系统应当明确拒答而不编造内容。', ''));
+        promotePanel.appendChild(refuseRow);
 
         var twoCol = document.createElement('div');
         twoCol.className = 'gov-kpi-grid';
@@ -6670,10 +8392,11 @@
         catField.className = 'gov-field';
         var catLab = document.createElement('span');
         catLab.className = 'gov-label';
-        catLab.textContent = '分类标签（category）';
+        catLab.textContent = '问题分类';
         var catInput = document.createElement('input');
         catInput.type = 'text';
         catInput.className = 'gov-input';
+        catInput.placeholder = '如：feedback';
         catInput.value = 'feedback';
         catField.appendChild(catLab);
         catField.appendChild(catInput);
@@ -6683,12 +8406,12 @@
         chunkIDField.className = 'gov-field';
         var cidLab = document.createElement('span');
         cidLab.className = 'gov-label';
-        cidLab.textContent = '标准切片 gold_chunk_id';
+        cidLab.textContent = '关联切片编号';
         var cidInput = document.createElement('input');
         cidInput.type = 'number';
         cidInput.min = '1';
         cidInput.className = 'gov-input';
-        cidInput.placeholder = '非拒答题必填，如 42';
+        cidInput.placeholder = '如：42';
         chunkIDField.appendChild(cidLab);
         chunkIDField.appendChild(cidInput);
         twoCol.appendChild(chunkIDField);
@@ -6699,19 +8422,19 @@
         chunkSelectField.className = 'gov-field';
         var chunkLab = document.createElement('span');
         chunkLab.className = 'gov-label';
-        chunkLab.textContent = '候选切片参考（选择自动填入 ID）';
+        chunkLab.textContent = '从候选切片选取';
         var chunkSel = document.createElement('select');
         chunkSel.className = 'gov-select';
         var defOpt = document.createElement('option');
         defOpt.value = '';
-        defOpt.textContent = '手动输入切片 ID 或下方选择';
+        defOpt.textContent = '手动填写或下拉选择';
         chunkSel.appendChild(defOpt);
         var cands = Array.isArray(fb.candidate_chunks) ? fb.candidate_chunks : [];
         for (var c = 0; c < cands.length; c++) {
           var cm = cands[c];
           var opt = document.createElement('option');
           opt.value = String(cm.id);
-          opt.textContent = '#' + cm.id + ' · ' + (cm.doc_title || cm.project_slug) + ' · ' + (cm.heading_path || '正文');
+          opt.textContent = '#' + cm.id + ' · ' + (cm.doc_title || getProjectDisplayName(cm.project_slug)) + ' · ' + (cm.heading_path || '正文');
           chunkSel.appendChild(opt);
         }
         if (cands.length > 0 && !refuseChk.checked) {
@@ -6726,11 +8449,11 @@
         ansField.className = 'gov-field';
         var ansLab = document.createElement('span');
         ansLab.className = 'gov-label';
-        ansLab.textContent = '标准参考答案（gold_answer）';
+        ansLab.textContent = '标准参考答案';
         var ansInput = document.createElement('input');
         ansInput.type = 'text';
         ansInput.className = 'gov-input';
-        ansInput.placeholder = '输入人工确认的标准答案；若应拒答可留空默认“文档中没有依据”';
+        ansInput.placeholder = '填写标准答案（拒答留空）';
         ansField.appendChild(ansLab);
         ansField.appendChild(ansInput);
         promotePanel.appendChild(ansField);
@@ -6760,7 +8483,7 @@
         confirmBtn.type = 'submit';
         confirmBtn.className = 'btn-primary-sm';
         confirmBtn.style.width = '100%';
-        confirmBtn.textContent = '确认转正入库';
+        confirmBtn.textContent = '确认加入评测集';
         pActions.appendChild(confirmBtn);
         promotePanel.appendChild(pActions);
 
@@ -6772,12 +8495,12 @@
           if (!shouldRefuse) {
             var parsedID = Number(cidInput.value);
             if (!Number.isInteger(parsedID) || parsedID <= 0) {
-              showGovMsg(fbMsg, 'is-err', '非拒答题必须提供有效的正整数 gold_chunk_id。');
+              showGovMsg(fbMsg, 'is-err', '非拒答题请填写有效的关联切片编号。');
               return;
             }
             goldChunkID = parsedID;
             if (!goldAnswer) {
-              showGovMsg(fbMsg, 'is-err', '非拒答题请填写标准参考答案 gold_answer。');
+              showGovMsg(fbMsg, 'is-err', '非拒答题请填写标准参考答案。');
               return;
             }
           }
@@ -6794,12 +8517,12 @@
           })
             .then(readJSONResponse)
             .then(function (res) {
-              showGovMsg(fbMsg, 'is-ok', '反馈 #' + fb.id + ' 已成功转正为活评测题 #' + res.promoted_question_id + '（question_set=feedback）');
+              showGovMsg(fbMsg, 'is-ok', '反馈 #' + fb.id + ' 已成功加入评测集（题号 #' + res.promoted_question_id + '）');
               loadFeedback();
             })
             .catch(function (err) {
               confirmBtn.disabled = false;
-              showGovMsg(fbMsg, 'is-err', '转正失败：' + err.message);
+              showGovMsg(fbMsg, 'is-err', '加入评测集失败：' + err.message);
             });
         });
 
@@ -6839,7 +8562,7 @@
 
         var projB = document.createElement('span');
         projB.className = 'doc-badge';
-        projB.textContent = '项目域：' + (fb.project_slug || 'auto');
+        projB.textContent = '项目：' + getProjectDisplayName(fb.project_slug);
         badges.appendChild(projB);
 
         if (fb.refused) {
@@ -6851,7 +8574,7 @@
 
         var promoB = document.createElement('span');
         promoB.className = 'doc-badge ' + (fb.promoted_question_id ? 'is-active' : 'is-fmt');
-        promoB.textContent = fb.promoted_question_id ? ('已转正题 #' + fb.promoted_question_id) : '待审阅转正';
+        promoB.textContent = fb.promoted_question_id ? ('已加入评测 #' + fb.promoted_question_id) : '待审阅处理';
         badges.appendChild(promoB);
 
         card.appendChild(badges);
@@ -6887,8 +8610,8 @@
           : '无';
         var timeStr = fb.created_at ? String(fb.created_at).slice(0, 19).replace('T', ' ') : '-';
         var infoRows = [
-          ['检索命中切片 ID', chunkIDsStr],
-          ['反馈提交时间', timeStr]
+          ['引用段落编号', chunkIDsStr],
+          ['反馈时间', timeStr]
         ];
         for (var ir = 0; ir < infoRows.length; ir++) {
           var rEl = document.createElement('div');
@@ -6951,7 +8674,7 @@
         if (!filtered.length) {
           var empty = document.createElement('div');
           empty.className = 'empty-hint';
-          empty.textContent = '当前筛选条件下暂无知识盲区记录，线上拒答会自动汇总至此。';
+          empty.textContent = '当前筛选条件下暂无知识盲区记录。';
           gapsList.appendChild(empty);
           return;
         }
@@ -6992,7 +8715,7 @@
 
             var projBadge = document.createElement('span');
             projBadge.className = 'doc-badge';
-            projBadge.textContent = '项目域：' + (gap.project_slug || 'auto');
+            projBadge.textContent = '项目：' + getProjectDisplayName(gap.project_slug);
             badges.appendChild(projBadge);
 
             var reasonBadge = document.createElement('span');
@@ -7061,14 +8784,14 @@
             var meta = document.createElement('div');
             meta.className = 'radar-meta';
             var scoreTxt = typeof gap.top1_final === 'number' ? gap.top1_final.toFixed(3) : '0.000';
-            var metaParts = ['Top1 融合分：' + scoreTxt];
+            var metaParts = ['最高匹配分：' + scoreTxt];
             if (gap.nearest_doc_title || gap.nearest_doc_filename) {
-              metaParts.push('近似文档：' + (gap.nearest_doc_title || gap.nearest_doc_filename));
+              metaParts.push('最接近文档：' + (gap.nearest_doc_title || gap.nearest_doc_filename));
             } else {
-              metaParts.push('近似文档：暂无高相关文档');
+              metaParts.push('最接近文档：暂无高相关文档');
             }
             if (gap.nearest_heading) {
-              metaParts.push('近似段落：' + gap.nearest_heading);
+              metaParts.push('接近章节：' + gap.nearest_heading);
             }
             if (gap.nearest_doc_owner) {
               metaParts.push('负责人：' + gap.nearest_doc_owner);
@@ -7112,7 +8835,7 @@
         })
           .then(readJSONResponse)
           .then(function () {
-            showGovMsg(gapsMsg, 'is-ok', '盲区 #' + id + ' 已更新为 ' + nextStatus);
+            showGovMsg(gapsMsg, 'is-ok', '盲区状态已更新为「' + formatGapStatusLabel(nextStatus) + '」');
             loadGaps();
           })
           .catch(function (err) {
@@ -7201,7 +8924,7 @@
 
             var projBadge = document.createElement('span');
             projBadge.className = 'doc-badge';
-            projBadge.textContent = '项目域：' + (fb.project_slug || 'auto');
+            projBadge.textContent = '项目：' + getProjectDisplayName(fb.project_slug);
             badges.appendChild(projBadge);
 
             if (fb.refused) {
@@ -7214,8 +8937,8 @@
             var promoBadge = document.createElement('span');
             promoBadge.className = 'doc-badge ' + (fb.promoted_question_id ? 'is-active' : 'is-fmt');
             promoBadge.textContent = fb.promoted_question_id
-              ? ('已转正题 #' + fb.promoted_question_id)
-              : '待审阅转正';
+              ? ('已加入评测 #' + fb.promoted_question_id)
+              : '待审阅处理';
             badges.appendChild(promoBadge);
 
             main.appendChild(badges);
@@ -7227,7 +8950,7 @@
             var openPromoteBtn = document.createElement('button');
             openPromoteBtn.type = 'button';
             openPromoteBtn.className = fb.promoted_question_id ? 'btn-ghost-sm' : 'btn-primary-sm';
-            openPromoteBtn.textContent = fb.promoted_question_id ? '查看详情' : '转正为评测题';
+            openPromoteBtn.textContent = fb.promoted_question_id ? '查看详情' : '加入评测集';
             openPromoteBtn.addEventListener('click', function (ev) {
               ev.stopPropagation();
               inspectFeedbackInRightPane(fb);
@@ -7253,7 +8976,7 @@
             }
             if (Array.isArray(fb.retrieved_chunk_ids) && fb.retrieved_chunk_ids.length > 0) {
               var rSpan = document.createElement('span');
-              rSpan.textContent = '检索切片ID：[' + fb.retrieved_chunk_ids.join(', ') + ']';
+              rSpan.textContent = '引用段落：[' + fb.retrieved_chunk_ids.join(', ') + ']';
               meta.appendChild(rSpan);
             }
             if (fb.created_at) {
@@ -7292,23 +9015,29 @@
 
       gapsFilterProject.addEventListener('change', loadGaps);
       gapsFilterStatus.addEventListener('change', loadGaps);
-      gapsRefreshBtn.addEventListener('click', loadGaps);
+      gapsRefreshBtn.addEventListener('click', function () {
+        loadGaps();
+        loadOnlineStats();
+      });
 
       fbFilterVote.addEventListener('change', loadFeedback);
       fbFilterPromoted.addEventListener('change', loadFeedback);
-      fbRefreshBtn.addEventListener('click', loadFeedback);
+      fbRefreshBtn.addEventListener('click', function () {
+        loadFeedback();
+        loadOnlineStats();
+      });
 
       fbRunEvalBtn.addEventListener('click', function () {
         fbRunEvalBtn.disabled = true;
         fbRunEvalBtn.textContent = '评测运行中...';
-        showGovMsg(fbEvalMsg, 'is-warn', '正在运行 question_set=feedback 活评测回归，请稍候…');
+        showGovMsg(fbEvalMsg, 'is-warn', '正在运行反馈活评测回归，请稍候…');
         fetch('/api/eval/run?set=feedback', { method: 'POST' })
           .then(readJSONResponse)
           .then(function (report) {
             fbRunEvalBtn.disabled = false;
             fbRunEvalBtn.textContent = '运行 feedback 活评测';
             var cnt = report.counts || {};
-            var txt = 'feedback 活评测完成：共 ' + (cnt.question_count || 0) + ' 题' +
+            var txt = '反馈集回归完成：共 ' + (cnt.question_count || 0) + ' 题' +
               ' · 检索命中率 ' + ((report.hit_rate || 0) * 100).toFixed(1) + '%' +
               ' · 引用准确率 ' + ((report.citation_rate || 0) * 100).toFixed(1) + '%' +
               ' · 拒答正确率 ' + ((report.refusal_rate || 0) * 100).toFixed(1) + '%';
@@ -7317,7 +9046,7 @@
           .catch(function (err) {
             fbRunEvalBtn.disabled = false;
             fbRunEvalBtn.textContent = '运行 feedback 活评测';
-            showGovMsg(fbEvalMsg, 'is-err', '运行 feedback 活评测失败：' + err.message);
+            showGovMsg(fbEvalMsg, 'is-err', '运行反馈活评测失败：' + err.message);
           });
       });
     })();

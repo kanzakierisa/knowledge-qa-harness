@@ -134,6 +134,14 @@ BEGIN
   ) THEN
     ALTER TABLE eval_runs ADD COLUMN batch_id VARCHAR(64) NOT NULL DEFAULT '';
   END IF;
+
+  -- projects.is_hidden（阶段 13：隐藏仅用于离线盲测的夹具项目，默认不暴露给普通前端与 auto 检索）
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'projects' AND COLUMN_NAME = 'is_hidden'
+  ) THEN
+    ALTER TABLE projects ADD COLUMN is_hidden TINYINT(1) NOT NULL DEFAULT 0;
+  END IF;
 END$$
 DELIMITER ;
 
@@ -169,4 +177,39 @@ CREATE TABLE IF NOT EXISTS eval_feedback (
   comment VARCHAR(500) NOT NULL DEFAULT '',
   promoted_question_id BIGINT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. 在线问答会话与轮次持久化（阶段 13：左侧任务管理 + 中栏多轮对话 + 口径 B 真实指标统计）
+CREATE TABLE IF NOT EXISTS qa_sessions (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(160) NOT NULL,
+  project_slug VARCHAR(64) NOT NULL DEFAULT '',
+  scope_mode ENUM('topic', 'material') NOT NULL DEFAULT 'topic',
+  document_ids VARCHAR(1000) NOT NULL DEFAULT '[]',
+  is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_qa_sessions_pin_upd (is_pinned, updated_at, id)
+);
+
+CREATE TABLE IF NOT EXISTS qa_turns (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  session_id BIGINT NOT NULL,
+  question TEXT NOT NULL,
+  project_slug VARCHAR(64) NOT NULL DEFAULT '',
+  scope_label VARCHAR(255) NOT NULL DEFAULT '',
+  answer MEDIUMTEXT NOT NULL,
+  citations_json MEDIUMTEXT NOT NULL,
+  retrieved_chunk_ids_json VARCHAR(500) NOT NULL DEFAULT '[]',
+  warnings_json MEDIUMTEXT NOT NULL,
+  comparisons_json MEDIUMTEXT NOT NULL,
+  ambiguity_json MEDIUMTEXT NOT NULL,
+  project_resolved VARCHAR(64) NOT NULL DEFAULT '',
+  refused TINYINT(1) NOT NULL DEFAULT 0,
+  retried TINYINT(1) NOT NULL DEFAULT 0,
+  citation_ok TINYINT(1) NULL,
+  feedback_vote ENUM('up', 'down') NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_qa_turns_session (session_id, id),
+  CONSTRAINT fk_qa_turns_session FOREIGN KEY (session_id) REFERENCES qa_sessions(id) ON DELETE CASCADE
 );
