@@ -9,6 +9,7 @@
 
 > 这是我用纯 Go 和 MySQL 8 手写的一套知识问答与文档治理工作台（Agent Harness）。我没有套用重型编排框架，而是把检索、引用校验、拒答护栏和回归评测都落在了确定性代码里。系统支持 `.md / .txt / .docx / .xlsx / .pdf` 与图片等多格式文档入库、多项目隔离与过期版本提醒、句级原文高亮溯源，也打通了文档更新自动局部回归（Doc CI/CD）、知识盲区雷达与用户反馈评测闭环。
 
+- **在线可交互 Demo（免配置即点即用）**：[https://kanzakierisa.github.io/knowledge-qa-harness/](https://kanzakierisa.github.io/knowledge-qa-harness/)（纯前端模拟 4 个内容消费空间与核心工作流，完整功能见下方源码部署或运行包）
 - **3 分钟演示视频（带配音与字幕）**：[demo_video_voiced.mp4](https://github.com/kanzakierisa/knowledge-qa-harness/releases/download/stage13-delivered/demo_video_voiced.mp4) · 配套演示脚本 [docs/v2_demo_script.md](docs/v2_demo_script.md)
 - **离线评测实验详录**：V1 迭代归因 [docs/iterations.md](docs/iterations.md) · V2/V3 对抗盲测与回滚记录 [docs/v2_iterations.md](docs/v2_iterations.md)
 - **Windows 免环境运行包**：可前往仓库 [Releases 页面](https://github.com/kanzakierisa/knowledge-qa-harness/releases/tag/stage13-delivered) 下载 `knowledge-qa-release.zip`，解压后无需安装 Go 环境即可双击脚本启动
