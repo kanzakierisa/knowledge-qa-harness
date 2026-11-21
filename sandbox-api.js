@@ -90,25 +90,90 @@
     }
   ];
 
-  function splitMarkdownIntoChunks(doc) {
-    var norm = String(doc.content || '').replace(/\r\n/g, '\n');
+  function splitLongSectionBody(pathLabel, body) {
+    var MAX_BODY = 900;
+    var TARGET_CHUNK = 720;
+    if (body.length <= MAX_BODY) {
+      return [{ heading_path: pathLabel, content: body }];
+    }
+    var paras = body.split(/\n{2,}/);
+    if (paras.length <= 1) {
+      paras = body.split('\n');
+    }
+    var subChunks = [];
+    var cur = '';
+
+    function pushCur() {
+      var trimmed = cur.trim();
+      cur = '';
+      if (!trimmed) return;
+      subChunks.push(trimmed);
+    }
+
+    for (var i = 0; i < paras.length; i++) {
+      var p = paras[i].trim();
+      if (!p) continue;
+      if (p.length > MAX_BODY) {
+        if (cur && cur.length + 2 > TARGET_CHUNK) pushCur();
+        for (var pos = 0; pos < p.length; pos += TARGET_CHUNK) {
+          var slice = p.slice(pos, pos + TARGET_CHUNK);
+          if (cur && cur.length + slice.length + 2 <= MAX_BODY) {
+            cur += '\n' + slice;
+          } else {
+            pushCur();
+            cur = slice;
+          }
+        }
+        continue;
+      }
+      if (cur && cur.length + p.length + 2 > TARGET_CHUNK) {
+        pushCur();
+      }
+      cur = cur ? (cur + '\n\n' + p) : p;
+    }
+    pushCur();
+
+    if (subChunks.length <= 1) {
+      return [{ heading_path: pathLabel, content: body }];
+    }
+    return subChunks.map(function (txt, idx) {
+      return {
+        heading_path: pathLabel + ' (第 ' + (idx + 1) + ' 段)',
+        content: txt
+      };
+    });
+  }
+
+  function splitMarkdownIntoChunks(doc, rawOverride) {
+    var norm = String(typeof rawOverride === 'string' ? rawOverride : (doc.content || '')).replace(/\r\n/g, '\n');
     var lines = norm.split('\n');
     var h1 = doc.title || '';
     var h2 = '';
     var buf = [];
     var chunks = [];
+    var MAX_CHUNKS = 250;
+    var zhChapRe = /^第[零一二三四五六七八九十百千万0-9]+[章卷回节话集部篇](?:[\s：:.、—-].*)?$/;
 
     function flush() {
+      if (chunks.length >= MAX_CHUNKS) {
+        buf = [];
+        return;
+      }
       var body = buf.join('\n').trim();
       buf = [];
       if (!body) return;
-      var path = h1;
-      if (h2 && h2 !== h1) path = h1 + ' > ' + h2;
-      chunks.push({ heading_path: path || doc.title || '正文', content: body });
+      var pathLabel = h1;
+      if (h2 && h2 !== h1) pathLabel = h1 + ' > ' + h2;
+      var subs = splitLongSectionBody(pathLabel || doc.title || '正文', body);
+      for (var si = 0; si < subs.length && chunks.length < MAX_CHUNKS; si++) {
+        chunks.push(subs[si]);
+      }
     }
 
     for (var i = 0; i < lines.length; i++) {
+      if (chunks.length >= MAX_CHUNKS) break;
       var line = lines[i];
+      var trimmed = line.trim();
       if (/^#\s+/.test(line)) {
         flush();
         h1 = line.replace(/^#\s+/, '').trim();
@@ -116,6 +181,9 @@
       } else if (/^##\s+/.test(line)) {
         flush();
         h2 = line.replace(/^##\s+/, '').trim();
+      } else if (trimmed.length >= 3 && trimmed.length <= 40 && zhChapRe.test(trimmed)) {
+        flush();
+        h2 = trimmed;
       } else if (/^>\s*/.test(line) && !h2 && chunks.length === 0 && buf.length === 0) {
         buf.push(line);
       } else {
@@ -124,7 +192,10 @@
     }
     flush();
     if (chunks.length === 0 && norm.trim()) {
-      chunks.push({ heading_path: doc.title || '正文', content: norm.trim() });
+      var fallbackSubs = splitLongSectionBody(doc.title || '正文', norm.trim());
+      for (var fi = 0; fi < fallbackSubs.length && chunks.length < MAX_CHUNKS; fi++) {
+        chunks.push(fallbackSubs[fi]);
+      }
     }
     return chunks;
   }
@@ -159,8 +230,61 @@
     }
   };
 
-  function addDocChunks(doc) {
-    var parts = splitMarkdownIntoChunks(doc);
+  // ---- Pure-JS Retrieval Engine (Chinese 2-gram + EN/Num Tokens) ----
+  var STOP_ZH = {
+    '的': 1, '了': 1, '和': 1, '与': 1, '或': 1, '是': 1, '在': 1, '有': 1, '中': 1,
+    '为': 1, '对': 1, '把': 1, '被': 1, '将': 1, '用': 1, '使': 1, '可': 1, '以': 1,
+    '要': 1, '就': 1, '都': 1, '而': 1, '等': 1, '吗': 1, '呢': 1, '啊': 1, '吧': 1,
+    '着': 1, '过': 1, '么': 1, '什': 1, '怎': 1, '哪': 1, '这': 1, '那': 1, '其': 1,
+    '它': 1, '还': 1, '也': 1, '但': 1, '如': 1, '果': 1, '则': 1, '会': 1, '能': 1,
+    '多': 1, '少': 1, '几': 1, '何': 1, '个': 1, '些': 1, '请': 1, '问': 1, '样': 1
+  };
+
+  function extractTokens(text) {
+    var cleaned = String(text || '').toLowerCase().replace(/[`|*#>\[\]()]/g, ' ');
+    var tokens = new Set();
+
+    var enMatches = cleaned.match(/[a-z0-9]+(?:[:._+-][a-z0-9]+)*/g);
+    if (enMatches) {
+      for (var i = 0; i < enMatches.length; i++) {
+        var tok = enMatches[i];
+        if (tok.length >= 2) tokens.add('en:' + tok);
+        var parts = tok.split(/[:._+-]/);
+        for (var j = 0; j < parts.length; j++) {
+          if (parts[j].length >= 2) tokens.add('en:' + parts[j]);
+        }
+      }
+    }
+
+    var hanRun = [];
+    function flushHan() {
+      if (hanRun.length === 1) {
+        tokens.add('zh1:' + hanRun[0]);
+      } else if (hanRun.length >= 2) {
+        for (var idx = 0; idx + 1 < hanRun.length; idx++) {
+          tokens.add('zh2:' + hanRun[idx] + hanRun[idx + 1]);
+        }
+      }
+      hanRun = [];
+    }
+    for (var k = 0; k < cleaned.length; k++) {
+      var ch = cleaned[k];
+      if (/[\u4e00-\u9fff]/.test(ch)) {
+        if (STOP_ZH[ch]) {
+          flushHan();
+        } else {
+          hanRun.push(ch);
+        }
+      } else {
+        flushHan();
+      }
+    }
+    flushHan();
+    return tokens;
+  }
+
+  function addDocChunks(doc, rawOverride) {
+    var parts = splitMarkdownIntoChunks(doc, rawOverride);
     var docChunks = [];
     for (var i = 0; i < parts.length; i++) {
       var ch = {
@@ -174,7 +298,9 @@
         doc_level: doc.doc_level,
         owner: doc.owner,
         heading_path: parts[i].heading_path,
-        content: parts[i].content
+        content: parts[i].content,
+        _headTokens: extractTokens((doc.title || '') + ' ' + (parts[i].heading_path || '')),
+        _bodyTokens: extractTokens(parts[i].content || '')
       };
       state.chunks.push(ch);
       docChunks.push(ch);
@@ -290,63 +416,10 @@
     { id: 97, project_slug: 'novel-growth', source_doc_id: 11, gold_chunk_id: novelTable.id, question: '新版番茄小说作者全勤激励规则中，基础全勤档和高产激励档的月更新字数与奖励分别是多少？', question_set: 'feedback', should_refuse: false, category: 'novel_demo' }
   ];
 
-  // ---- Pure-JS Retrieval Engine (Chinese 2-gram + EN/Num Tokens) ----
-  var STOP_ZH = {
-    '的': 1, '了': 1, '和': 1, '与': 1, '或': 1, '是': 1, '在': 1, '有': 1, '中': 1,
-    '为': 1, '对': 1, '把': 1, '被': 1, '将': 1, '用': 1, '使': 1, '可': 1, '以': 1,
-    '要': 1, '就': 1, '都': 1, '而': 1, '等': 1, '吗': 1, '呢': 1, '啊': 1, '吧': 1,
-    '着': 1, '过': 1, '么': 1, '什': 1, '怎': 1, '哪': 1, '这': 1, '那': 1, '其': 1,
-    '它': 1, '还': 1, '也': 1, '但': 1, '如': 1, '果': 1, '则': 1, '会': 1, '能': 1,
-    '多': 1, '少': 1, '几': 1, '何': 1, '个': 1, '些': 1, '请': 1, '问': 1, '样': 1
-  };
-
-  function extractTokens(text) {
-    var cleaned = String(text || '').toLowerCase().replace(/[`|*#>\[\]()]/g, ' ');
-    var tokens = new Set();
-
-    var enMatches = cleaned.match(/[a-z0-9]+(?:[:._+-][a-z0-9]+)*/g);
-    if (enMatches) {
-      for (var i = 0; i < enMatches.length; i++) {
-        var tok = enMatches[i];
-        if (tok.length >= 2) tokens.add('en:' + tok);
-        var parts = tok.split(/[:._+-]/);
-        for (var j = 0; j < parts.length; j++) {
-          if (parts[j].length >= 2) tokens.add('en:' + parts[j]);
-        }
-      }
-    }
-
-    var hanRun = [];
-    function flushHan() {
-      if (hanRun.length === 1) {
-        tokens.add('zh1:' + hanRun[0]);
-      } else if (hanRun.length >= 2) {
-        for (var idx = 0; idx + 1 < hanRun.length; idx++) {
-          tokens.add('zh2:' + hanRun[idx] + hanRun[idx + 1]);
-        }
-      }
-      hanRun = [];
-    }
-    for (var k = 0; k < cleaned.length; k++) {
-      var ch = cleaned[k];
-      if (/[\u4e00-\u9fff]/.test(ch)) {
-        if (STOP_ZH[ch]) {
-          flushHan();
-        } else {
-          hanRun.push(ch);
-        }
-      } else {
-        flushHan();
-      }
-    }
-    flushHan();
-    return tokens;
-  }
-
   function scoreChunk(queryTokens, qLower, ch, doc) {
     if (!queryTokens || queryTokens.size === 0) return 0;
-    var headingTokens = extractTokens((doc.title || '') + ' ' + (ch.heading_path || ''));
-    var bodyTokens = extractTokens(ch.content || '');
+    var headingTokens = ch._headTokens || extractTokens((doc.title || '') + ' ' + (ch.heading_path || ''));
+    var bodyTokens = ch._bodyTokens || extractTokens(ch.content || '');
 
     var qArr = Array.from(queryTokens);
     var zh2Query = qArr.filter(function (t) { return t.indexOf('zh2:') === 0 || t.indexOf('en:') === 0; });
@@ -942,6 +1015,114 @@
     return 'proj-' + Math.random().toString(36).slice(2, 7);
   }
 
+  var COMMON_ZH_CHARS = new Set(Array.from(
+    '的一是在不了有和人这中大为上个国我以要他时来用们生到作地于出就分对成会可主发年动同工也能下过子说产种面而方后多定行学法所民得经十三之进着等部度家电力里如水化高自二理起小物现实加量都两体制机当使点从业本去把性好应开它合还因由其些然前外天政四日那社义事平形相全表间样与关各重新线内数正心反你明看原又么利比或但质气第向道命此变条只没结解问意建月公无军很情者最立代想已通并提直题党程展五果料象员革位入常文总次品式活设及管特件长求老头基资边流路级少图山统接知较将组见计别她手角期根论运农指几九区强放决西被干做必战先回则任取据处队南给色光门即保治北造百规热领七海口东导器压志世金增争济阶油思术极交受联什认六共权收证改清己美再采转更单风切打白教速花带安场身车例真务具万每目至达走积示议声报斗完类八离华名确才科张信马节话米整空元况今集温传土许步群广石记需段研界拉林律叫且究观越织装影算低持音众书布复容儿须际商非验连断深难近矿千周委素技备半办青省列习响约支般史感劳便团往酸历市克何除消构府称太准精值号率族维划选标写存候毛亲快效斯院查江型眼王按格养易置派层片始却专状育厂京识适属圆包火住调满县局照参红细引听该铁价严龙飞' +
+    '這中為上個國我以要他時來用們生到作地於出就分對成會可主發年動同工也能下過子說產種面而方後多定行學法所民得經十三之進著等部度家電力裡如水化高自二理起小物現實加量都兩體制機當使點從業本去把性好應開它合還因由其些然前外天政四日那社義事平形相全表間樣與關各重新線內數正心反你明看原又麼利比或但質氣第向道命此變條只沒結解問意建月公無軍很情者最立代想已通並提直題黨程展五果料象員革位入常文總次品式活設及管特件長求老頭基資邊流路級少圖山統接知較將組見計別她手角期根論運農指幾九區強放決西被幹做必戰先回則任取據處隊南給色光門即保治北造百規熱領七海口東導器壓誌世金增爭濟階油思術極交受聯什認六共權收證改清己美再采轉更單風切打白教速花帶安場身車例真務具萬每目至達走積示議聲報鬥完類八離華名確才科張信馬節話米整空元況今集溫傳土許步群廣石記需段研界拉林律叫且究觀越織裝影算低持音眾書布複容兒須際商非驗連斷深難近礦千週委素技備半辦青省列習響約支般史感勞便團往酸歷市克何除消構府稱太準精值號率族維劃選標寫存候毛親快效斯院查江型眼王按格養易置派層片始卻專狀育廠京識適屬圓包火住調滿縣局照參紅細引聽該鐵價嚴龍飛臺版說著話還沒這'
+  ));
+  var ZH_PUNCT_SET = new Set(Array.from('，。！？、；：「」『』（）《》【】“”‘’—…'));
+
+  function scoreChineseSample(str) {
+    var score = 0;
+    for (var i = 0; i < str.length; i++) {
+      var cp = str.charCodeAt(i);
+      var ch = str[i];
+      if (cp === 0xFFFD) {
+        score -= 12;
+      } else if (cp < 0x20 && cp !== 0x09 && cp !== 0x0A && cp !== 0x0D) {
+        score -= 8;
+      } else if (ZH_PUNCT_SET.has(ch)) {
+        score += 4;
+      } else if (COMMON_ZH_CHARS.has(ch)) {
+        score += 3;
+      } else if (cp >= 0x4E00 && cp <= 0x9FFF) {
+        score += 0.5;
+      } else if ((cp >= 0x0400 && cp <= 0x04FF) || (cp >= 0x2500 && cp <= 0x257F) || (cp >= 0xE000 && cp <= 0xF8FF)) {
+        score -= 3;
+      }
+    }
+    return score;
+  }
+
+  function decodeTextBytes(bytes) {
+    if (!bytes || bytes.length === 0) return { text: '', encoding: 'empty' };
+
+    // 1. Explicit BOM checks
+    if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+      return { text: new TextDecoder('utf-8').decode(bytes.subarray(3)), encoding: 'utf-8-bom' };
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+      return { text: new TextDecoder('utf-16le').decode(bytes.subarray(2)), encoding: 'utf-16le' };
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+      return { text: new TextDecoder('utf-16be').decode(bytes.subarray(2)), encoding: 'utf-16be' };
+    }
+
+    // 2. Strict UTF-8 without BOM
+    try {
+      var strictUtf8 = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      if (strictUtf8.indexOf('\u0000') < 0) {
+        return { text: strictUtf8, encoding: 'utf-8' };
+      }
+    } catch (e) {
+      // Not valid UTF-8, fall through to UTF-16 / GB18030 / Big5 detection
+    }
+
+    // 3. BOM-less UTF-16LE / UTF-16BE heuristic
+    var probeLen = Math.min(bytes.length, 512);
+    var zeroEven = 0, zeroOdd = 0;
+    for (var i = 0; i < probeLen; i++) {
+      if (bytes[i] === 0) {
+        if (i % 2 === 0) zeroEven++;
+        else zeroOdd++;
+      }
+    }
+    if (probeLen >= 8 && zeroOdd > probeLen * 0.25 && zeroEven < zeroOdd * 0.2) {
+      try {
+        return { text: new TextDecoder('utf-16le').decode(bytes), encoding: 'utf-16le-nobom' };
+      } catch (e16le) {}
+    }
+    if (probeLen >= 8 && zeroEven > probeLen * 0.25 && zeroOdd < zeroEven * 0.2) {
+      try {
+        return { text: new TextDecoder('utf-16be').decode(bytes), encoding: 'utf-16be-nobom' };
+      } catch (e16be) {}
+    }
+
+    // 4. Compare GB18030 vs Big5 on up to 16 KB sample
+    var sampleBytes = bytes.subarray(0, Math.min(bytes.length, 16384));
+    var candidates = [];
+    ['gb18030', 'big5'].forEach(function (enc) {
+      try {
+        var dec = new TextDecoder(enc);
+        var sampleStr = dec.decode(sampleBytes);
+        candidates.push({ enc: enc, score: scoreChineseSample(sampleStr) });
+      } catch (eEnc) {}
+    });
+    candidates.sort(function (a, b) { return b.score - a.score; });
+
+    var chosenEnc = candidates.length > 0 ? candidates[0].enc : 'utf-8';
+    var decodedText = new TextDecoder(chosenEnc).decode(bytes).replace(/\u0000/g, '');
+
+    // Check replacement char ratio among non-ASCII chars
+    var nonAscii = 0, replCount = 0;
+    for (var j = 0; j < decodedText.length; j++) {
+      var code = decodedText.charCodeAt(j);
+      if (code >= 0x80) nonAscii++;
+      if (code === 0xFFFD) replCount++;
+    }
+    if (nonAscii > 10 && (replCount / nonAscii) > 0.15) {
+      return {
+        error: '检测到文本编码无法识别或包含二进制乱码（建议另存为 UTF-8 或常见 GBK/Big5 编码的纯文本后再上传）。'
+      };
+    }
+
+    return { text: decodedText, encoding: chosenEnc };
+  }
+
+  async function decodeTextFile(file) {
+    var buf = await file.arrayBuffer();
+    return decodeTextBytes(new Uint8Array(buf));
+  }
+
   async function handleUpload(formData) {
     var file = formData.get('file');
     var projectSlug = String(formData.get('project_slug') || '').trim();
@@ -964,7 +1145,11 @@
     var rawText = '';
 
     if (ext === 'md' || ext === 'txt') {
-      rawText = await file.text();
+      var decoded = await decodeTextFile(file);
+      if (decoded.error) {
+        return { status: 400, body: { error: decoded.error } };
+      }
+      rawText = decoded.text;
     } else if (existing && overwrite) {
       // Allow testing Doc CI/CD overwrite on pre-loaded demo .docx/.xlsx/.pdf filenames
       rawText = existing.content;
@@ -981,7 +1166,12 @@
       return { status: 400, body: { error: '上传文件内容为空，无法切分入库' } };
     }
 
-    if (existing && !overwrite && existing.content.trim() === rawText.trim()) {
+    var PREVIEW_MAX_CHARS = 120000;
+    var storedPreviewContent = rawText.length > PREVIEW_MAX_CHARS
+      ? (rawText.slice(0, PREVIEW_MAX_CHARS) + '\n\n...（文本较长，浏览器原文预览仅展示前 120,000 字，分段内容已切分入库）')
+      : rawText;
+
+    if (existing && !overwrite && existing.content.trim() === storedPreviewContent.trim()) {
       return { status: 200, body: { document_id: existing.id, skipped: true, chunk_count: existing.chunk_count } };
     }
 
@@ -999,7 +1189,7 @@
       });
       state.chunks = state.chunks.filter(function (c) { return c.document_id !== existing.id; });
       existing.title = parsedTitle;
-      existing.content = rawText;
+      existing.content = storedPreviewContent;
       existing.doc_level = docLevel;
       existing.owner = owner;
       existing.updated_at = nowStr;
@@ -1018,12 +1208,12 @@
         replaced_by_doc_id: null,
         owner: owner,
         updated_at: nowStr,
-        content: rawText
+        content: storedPreviewContent
       };
       state.docs.unshift(docObj);
     }
 
-    var newChunks = addDocChunks(docObj);
+    var newChunks = addDocChunks(docObj, rawText);
 
     // Trigger Doc CI/CD local regression if any evalQuestions reference this document
     var regressionSummary = null;
