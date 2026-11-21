@@ -518,6 +518,60 @@
     });
   }
 
+  function detectOutsideScopeMatch(q, qTokens, qLower, reqProj, isMaterial, docIDs) {
+    var currentScopeName = isMaterial
+      ? (docIDs.length === 1 ? '已选材料' : ('已选 ' + docIDs.length + ' 篇材料'))
+      : getProjName(reqProj);
+
+    var targetSlug = '';
+    var targetName = '';
+
+    if (/新版活动发奖|发奖规则和端口/.test(q) && (isMaterial || reqProj !== 'content-promo')) {
+      targetSlug = 'content-promo';
+      targetName = getProjName('content-promo');
+    } else if (/红果短剧/.test(q) && /分账|结算|三件套/.test(q) && (isMaterial || reqProj !== 'short-drama')) {
+      targetSlug = 'short-drama';
+      targetName = getProjName('short-drama');
+    } else if (/番茄小说/.test(q) && /分成|全勤|保底|断更/.test(q) && (isMaterial || reqProj !== 'novel-growth')) {
+      targetSlug = 'novel-growth';
+      targetName = getProjName('novel-growth');
+    } else if (/默认监听端口|监听端口/.test(q) && !/活动|红果|短剧|番茄|小说|旧版/.test(q)) {
+      targetSlug = 'auto';
+      targetName = '自动识别（防跨项目串台）';
+    } else {
+      var outsidePool = state.chunks.filter(function (ch) {
+        if (isMaterial) return docIDs.indexOf(ch.document_id) < 0;
+        return ch.project_slug !== reqProj && ch.project_slug !== 'shared';
+      });
+      var outsideScored = outsidePool.map(function (ch) {
+        var d = state.docs.find(function (x) { return x.id === ch.document_id; }) || {};
+        return { chunk: ch, doc: d, score: scoreChunk(qTokens, qLower, ch, d) };
+      }).sort(function (a, b) {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.chunk.id - a.chunk.id;
+      });
+      if (outsideScored.length > 0 && outsideScored[0].score >= 0.40) {
+        var bestOut = outsideScored[0].chunk;
+        targetSlug = bestOut.project_slug;
+        targetName = bestOut.project_name || getProjName(bestOut.project_slug);
+      }
+    }
+
+    if (!targetSlug) return null;
+    if (targetSlug === 'auto') {
+      return {
+        suggested_project_slug: 'auto',
+        suggested_project_name: '自动识别（防跨项目串台）',
+        refusal_hint: '当前检索范围已锁定在「' + currentScopeName + '」（跨项目严格隔离，防止串台），该空间内无足够依据；检测到多个项目均包含端口配置规范，可切回「自动识别」触发跨项目歧义对照。'
+      };
+    }
+    return {
+      suggested_project_slug: targetSlug,
+      suggested_project_name: targetName,
+      refusal_hint: '当前检索范围已锁定在「' + currentScopeName + '」（跨项目严格隔离，防止串台），该空间内无相关依据；检测到「' + targetName + '」空间包含相关规范，可点击下方按钮切换空间重问。'
+    };
+  }
+
   function handleAsk(req) {
     var q = String(req.question || '').trim();
     var qLower = q.toLowerCase();
@@ -661,6 +715,26 @@
       }
     }
 
+    if ((isAutoScope || reqProj === 'novel-growth') && /番茄小说/.test(q) && /分成|全勤|保底|断更/.test(q)) {
+      var nv1 = findChunk('novel-growth', 'novel-signing-incentive-v2.docx', '订阅与广告分成体系', '50%');
+      var nv2 = findChunk('novel-growth', 'novel-signing-incentive-v2.docx', '分级全勤激励表', '800');
+      var nvOld = /保底|旧版/.test(q) ? findChunk('novel-growth', 'novel-signing-incentive-v1.md', '旧版千字保底', '30 元') : null;
+      if (nv1 && nv2) {
+        var citsNV = [formatCitation(1, nv1), formatCitation(2, nv2)];
+        if (nvOld) citsNV.push(formatCitation(3, nvOld));
+        var tNV = {
+          id: turnID, session_id: sessID, question: q, project_slug: reqProj || 'auto', scope_label: req.scope_label || '自动识别',
+          project_resolved: 'novel-growth',
+          answer: '新版番茄小说签约作品统一采用「免费阅读广告分成 50% + 会员订阅净收益 50%」双轨结算，并于每月 10 日前在作家后台自动出具上月明细账单。[1] 分级全勤激励中，基础全勤档要求每日不少于 4,000 字且月累计 12 万字及以上（800 元/月），高产激励档要求每日不少于 6,000 字且月累计 18 万字及以上（1,500 元/月）；每月享有 2 次请假条额度。[2]',
+          citations: citsNV,
+          retrieved_chunk_ids: citsNV.map(function (x) { return x.chunk_id; }),
+          warnings: buildWarningsForCitations(citsNV),
+          comparisons: [], ambiguity: null, refused: false, retried: false, citation_ok: true, feedback_vote: null, created_at: nowStr
+        };
+        return saveAndRespondTurn(sessID, tNV, nowStr);
+      }
+    }
+
     // 4. General 2-gram Retrieval across Scoped Pool
     var pool = state.chunks.filter(function (ch) {
       if (isMaterial) return docIDs.indexOf(ch.document_id) >= 0;
@@ -678,11 +752,18 @@
 
     var top1 = scored[0] || null;
     if (!top1 || top1.score < 0.35) {
-      recordKnowledgeGap(reqProj || 'auto', q, top1 ? top1.score : 0, top1 ? top1.chunk : null);
+      var crossHint = !isAutoScope ? detectOutsideScopeMatch(q, qTokens, qLower, reqProj, isMaterial, docIDs) : null;
+      if (!crossHint) {
+        recordKnowledgeGap(reqProj || 'auto', q, top1 ? top1.score : 0, top1 ? top1.chunk : null);
+      }
       var refTurn = {
         id: turnID, session_id: sessID, question: q, project_slug: reqProj || 'auto', scope_label: req.scope_label || '自动识别',
         project_resolved: '', answer: '文档中没有依据', citations: [], retrieved_chunk_ids: top1 ? [top1.chunk.id] : [],
-        warnings: [], comparisons: [], ambiguity: null, refused: true, retried: false, citation_ok: null, feedback_vote: null, created_at: nowStr
+        warnings: [], comparisons: [], ambiguity: null, refused: true,
+        refusal_hint: crossHint ? crossHint.refusal_hint : '',
+        suggested_project_slug: crossHint ? crossHint.suggested_project_slug : '',
+        suggested_project_name: crossHint ? crossHint.suggested_project_name : '',
+        retried: false, citation_ok: null, feedback_vote: null, created_at: nowStr
       };
       return saveAndRespondTurn(sessID, refTurn, nowStr);
     }
@@ -766,6 +847,9 @@
         citations: turn.citations,
         retrieved_chunk_ids: turn.retrieved_chunk_ids,
         refused: turn.refused,
+        refusal_hint: turn.refusal_hint || '',
+        suggested_project_slug: turn.suggested_project_slug || '',
+        suggested_project_name: turn.suggested_project_name || '',
         retried: turn.retried,
         citation_ok: turn.citation_ok,
         project_resolved: turn.project_resolved,

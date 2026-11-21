@@ -3070,7 +3070,13 @@
       }
     }
 
-    /* GitHub Pages 在线体验沙箱横幅（适配深浅双主题） */
+    /* GitHub Pages 在线体验沙箱横幅与跨项目拒答引导按钮（适配深浅双主题） */
+    .refusal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 8px;
+    }
     .sandbox-banner {
       flex: 0 0 auto;
       min-height: 32px;
@@ -3438,25 +3444,25 @@
 
                 <div class="examples" aria-label="示例问题">
                   <button type="button" class="example-chip" data-q="新版活动发奖规则和端口配置有哪些注意事项？">
-                    <span>新版活动发奖规则和端口配置有哪些注意事项？</span>
+                    <span>新版活动发奖规则和端口配置有哪些注意事项？（新旧版本警示）</span>
                     <svg class="example-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
                   </button>
                   <button type="button" class="example-chip" data-q="默认监听端口是多少？">
-                    <span>默认监听端口是多少？</span>
+                    <span>默认监听端口是多少？（跨项目歧义与对照）</span>
                     <svg class="example-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
                   </button>
                   <button type="button" class="example-chip" data-q="红果短剧分账结算周期和版权三件套是什么？">
-                    <span>红果短剧分账结算周期和版权三件套是什么？</span>
+                    <span>红果短剧分账结算周期和版权三件套是什么？（跨章节溯源）</span>
                     <svg class="example-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
                   </button>
                   <button type="button" class="example-chip" data-q="怎么做法式红酒炖牛肉？">
-                    <span>怎么做法式红酒炖牛肉？</span>
+                    <span>怎么做法式红酒炖牛肉？（无依据拒答演示）</span>
                     <svg class="example-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M7 17 17 7" /><path d="M7 7h10v10" />
                     </svg>
@@ -5669,6 +5675,12 @@
 
       clearChatBtn.addEventListener('click', function () {
         if (isLoading) return;
+        scopeMode = 'topic';
+        selectedProjectSlug = '';
+        selectedDocumentIDs = [];
+        renderProjectBar(cachedProjects);
+        renderMaterialList();
+        syncScopeDisplay();
         questionInput.value = '';
         validationHint.hidden = true;
         validationHint.textContent = '';
@@ -6761,10 +6773,49 @@
           refBox.appendChild(refTitle);
           var refDescEl = document.createElement('p');
           refDescEl.className = 'refusal-desc';
-          refDescEl.textContent = (turn.answer && String(turn.answer).indexOf('暂无资料') >= 0)
-            ? '当前指定范围尚无已入库资料，请先上传文档或切换其他主题/材料。'
-            : DEFAULT_REFUSAL_DESC;
+          refDescEl.textContent = turn.refusal_hint
+            ? turn.refusal_hint
+            : ((turn.answer && String(turn.answer).indexOf('暂无资料') >= 0)
+              ? '当前指定范围尚无已入库资料，请先上传文档或切换其他主题/材料。'
+              : DEFAULT_REFUSAL_DESC);
           refBox.appendChild(refDescEl);
+          if (turn.suggested_project_slug) {
+            var refActions = document.createElement('div');
+            refActions.className = 'refusal-actions';
+            if (turn.suggested_project_slug !== 'auto') {
+              var switchProjBtn = document.createElement('button');
+              switchProjBtn.type = 'button';
+              switchProjBtn.className = 'btn-primary-sm';
+              switchProjBtn.textContent = '切换到「' + (turn.suggested_project_name || turn.suggested_project_slug) + '」重问';
+              switchProjBtn.addEventListener('click', function () {
+                if (isLoading) return;
+                scopeMode = 'topic';
+                selectedProjectSlug = turn.suggested_project_slug;
+                selectedDocumentIDs = [];
+                renderProjectBar(cachedProjects);
+                renderMaterialList();
+                syncScopeDisplay();
+                submitQuestion(false, turn.question, true);
+              });
+              refActions.appendChild(switchProjBtn);
+            }
+            var switchAutoBtn = document.createElement('button');
+            switchAutoBtn.type = 'button';
+            switchAutoBtn.className = 'btn-ghost-sm';
+            switchAutoBtn.textContent = '切回「自动识别」重问';
+            switchAutoBtn.addEventListener('click', function () {
+              if (isLoading) return;
+              scopeMode = 'topic';
+              selectedProjectSlug = '';
+              selectedDocumentIDs = [];
+              renderProjectBar(cachedProjects);
+              renderMaterialList();
+              syncScopeDisplay();
+              submitQuestion(false, turn.question, true);
+            });
+            refActions.appendChild(switchAutoBtn);
+            refBox.appendChild(refActions);
+          }
           var refFb = buildFeedbackBarEl(turn);
           if (refFb) refBox.appendChild(refFb);
           block.appendChild(refBox);
@@ -6942,6 +6993,9 @@
               ambiguity: data.ambiguity || null,
               project_resolved: data.project_resolved || '',
               refused: Boolean(data.refused) || (String(data.answer).trim() === REFUSE_TEXT && citations.length === 0),
+              refusal_hint: data.refusal_hint || '',
+              suggested_project_slug: data.suggested_project_slug || '',
+              suggested_project_name: data.suggested_project_name || '',
               retried: Boolean(data.retried),
               citation_ok: (typeof data.citation_ok === 'boolean') ? data.citation_ok : null,
               feedback_vote: null
@@ -6988,6 +7042,12 @@
       for (var i = 0; i < exampleChips.length; i++) {
         exampleChips[i].addEventListener('click', function () {
           if (isLoading) return;
+          scopeMode = 'topic';
+          selectedProjectSlug = '';
+          selectedDocumentIDs = [];
+          renderProjectBar(cachedProjects);
+          renderMaterialList();
+          syncScopeDisplay();
           questionInput.value = this.getAttribute('data-q') || '';
           submitQuestion(false);
         });
