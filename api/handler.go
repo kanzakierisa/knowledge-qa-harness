@@ -165,8 +165,11 @@ type askResponse struct {
 	Answer            string             `json:"answer"`
 	Citations         []citation         `json:"citations"`
 	RetrievedChunkIDs []int64            `json:"retrieved_chunk_ids,omitempty"`
-	Refused           bool               `json:"refused"`
-	Retried           bool               `json:"retried"` // 阶段 4：引用校验失败后是否重试过
+	Refused              bool               `json:"refused"`
+	RefusalHint          string             `json:"refusal_hint,omitempty"`
+	SuggestedProjectSlug string             `json:"suggested_project_slug,omitempty"`
+	SuggestedProjectName string             `json:"suggested_project_name,omitempty"`
+	Retried              bool               `json:"retried"` // 阶段 4：引用校验失败后是否重试过
 	CitationOK        *bool              `json:"citation_ok,omitempty"`
 	ProjectResolved   string             `json:"project_resolved,omitempty"`
 	Ambiguity         *ambiguityInfo     `json:"ambiguity,omitempty"`
@@ -451,10 +454,18 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 		})
 		resolved := resolveProjectFromChunks(scoped, reqSlug)
 		if len(scoredDocs) == 0 || scoredDocs[0].Final < refuseThreshold {
-			return h.finalizeAnswer(chat, question, truncateMerged(scoredDocs, retrieve.TopN), resolved, opts, false)
+			resp, outTop, err := h.finalizeAnswer(chat, question, truncateMerged(scoredDocs, retrieve.TopN), resolved, opts, false)
+			if err == nil && opts.RecordGap && resp.Refused {
+				h.enrichCrossSpaceRefusalHint(question, qVec, chunks, reqSlug, docIDs, &resp)
+			}
+			return resp, outTop, err
 		}
 		top := retrieve.RerankAndSelect(question, scoredDocs, reranker, retrieve.TopN, refuseThreshold)
-		return h.finalizeAnswer(chat, question, top, resolved, opts, true)
+		resp, outTop, err := h.finalizeAnswer(chat, question, top, resolved, opts, true)
+		if err == nil && opts.RecordGap && resp.Refused {
+			h.enrichCrossSpaceRefusalHint(question, qVec, chunks, reqSlug, docIDs, &resp)
+		}
+		return resp, outTop, err
 	}
 
 	if !isAuto {
@@ -486,10 +497,18 @@ func (h *Handler) answerQuestionWithOptions(question string, opts askOptions) (a
 	if !isAuto {
 		scoredProj := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{ProjectSlug: reqSlug})
 		if len(scoredProj) == 0 || scoredProj[0].Final < refuseThreshold {
-			return h.finalizeAnswer(chat, question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts, false)
+			resp, outTop, err := h.finalizeAnswer(chat, question, truncateMerged(scoredProj, retrieve.TopN), reqSlug, opts, false)
+			if err == nil && opts.RecordGap && resp.Refused {
+				h.enrichCrossSpaceRefusalHint(question, qVec, chunks, reqSlug, docIDs, &resp)
+			}
+			return resp, outTop, err
 		}
 		top := retrieve.RerankAndSelect(question, scoredProj, reranker, retrieve.TopN, refuseThreshold)
-		return h.finalizeAnswer(chat, question, top, reqSlug, opts, true)
+		resp, outTop, err := h.finalizeAnswer(chat, question, top, reqSlug, opts, true)
+		if err == nil && opts.RecordGap && resp.Refused {
+			h.enrichCrossSpaceRefusalHint(question, qVec, chunks, reqSlug, docIDs, &resp)
+		}
+		return resp, outTop, err
 	}
 
 	scored := retrieve.ScoreWithOptions(question, qVec, chunks, retrieve.MergeOptions{})
@@ -620,6 +639,78 @@ func (h *Handler) finalizeAnswer(chat *generate.ChatClient, question string, top
 		Warnings:          buildDeprecatedWarnings(answer, top),
 		Debug:             maybeDebug(opts.Debug, top),
 	}, top, nil
+}
+
+func (h *Handler) enrichCrossSpaceRefusalHint(question string, qVec []float64, allChunks []store.Chunk, reqSlug string, docIDs []int64, resp *askResponse) {
+	if resp == nil || !resp.Refused || len(qVec) == 0 {
+		return
+	}
+	visibleChunks := filterVisibleChunks(allChunks)
+	docSet := make(map[int64]bool, len(docIDs))
+	for _, id := range docIDs {
+		docSet[id] = true
+	}
+
+	outside := make([]store.Chunk, 0, len(visibleChunks))
+	var currentProjName string
+	for _, ch := range visibleChunks {
+		if reqSlug != "" && ch.ProjectSlug == reqSlug && ch.ProjectName != "" && currentProjName == "" {
+			currentProjName = ch.ProjectName
+		}
+		if len(docSet) > 0 {
+			if !docSet[ch.DocumentID] {
+				outside = append(outside, ch)
+			}
+			continue
+		}
+		if ch.ProjectSlug != reqSlug && ch.ProjectSlug != "shared" {
+			outside = append(outside, ch)
+		}
+	}
+	if len(outside) == 0 {
+		return
+	}
+
+	outsideScored := retrieve.ScoreWithOptions(question, qVec, outside, retrieve.MergeOptions{})
+	if len(outsideScored) == 0 || outsideScored[0].Final < refuseThreshold {
+		return
+	}
+
+	currentScopeName := ""
+	if len(docSet) > 0 {
+		if len(docSet) == 1 {
+			currentScopeName = "已选材料"
+		} else {
+			currentScopeName = fmt.Sprintf("已选 %d 篇材料", len(docSet))
+		}
+	} else {
+		currentScopeName = firstNonEmptyString(currentProjName, reqSlug)
+		if h != nil && h.Store != nil && reqSlug != "" {
+			if p, err := h.Store.GetProjectBySlug(reqSlug); err == nil && p.Name != "" {
+				currentScopeName = p.Name
+			}
+		}
+	}
+
+	amb := detectCrossProjectAmbiguity(outsideScored, refuseThreshold, retrieve.TopN)
+	if amb.Ambiguity != nil && amb.Ambiguity.Detected {
+		resp.SuggestedProjectSlug = "auto"
+		resp.SuggestedProjectName = "自动识别（防跨项目串台）"
+		resp.RefusalHint = fmt.Sprintf(
+			"当前检索范围已锁定在「%s」（跨项目严格隔离，防止串台），该范围内无足够依据；检测到多个项目均包含相关规范，可切回「自动识别」触发跨项目歧义对照。",
+			currentScopeName,
+		)
+		return
+	}
+
+	bestSlug := outsideScored[0].Chunk.ProjectSlug
+	bestName := firstNonEmptyString(outsideScored[0].Chunk.ProjectName, bestSlug)
+	resp.SuggestedProjectSlug = bestSlug
+	resp.SuggestedProjectName = bestName
+	resp.RefusalHint = fmt.Sprintf(
+		"当前检索范围已锁定在「%s」（跨项目严格隔离，防止串台），该空间内无相关依据；检测到「%s」空间包含相关规范，可点击下方按钮切换空间重问。",
+		currentScopeName, bestName,
+	)
 }
 
 func chunkIDsFromMerged(top []retrieve.MergedChunk) []int64 {

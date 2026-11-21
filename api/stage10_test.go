@@ -388,3 +388,71 @@ func TestStage10MultiProjectAndWarningsMySQL(t *testing.T) {
 		t.Fatalf("citation missing Stage 10 metadata: %+v", dep.Citations)
 	}
 }
+
+func TestCrossSpaceRefusalHintPreservesIsolation(t *testing.T) {
+	h := &Handler{}
+	qVec := []float64{1, 0, 0}
+
+	makeChunk := func(id, docID int64, slug, name, heading, content string, vec []float64, hidden bool) store.Chunk {
+		return store.Chunk{
+			ID:            id,
+			DocumentID:    docID,
+			ProjectSlug:   slug,
+			ProjectName:   name,
+			ProjectHidden: hidden,
+			HeadingPath:   heading,
+			Content:       content,
+			DocLevel:      "spec",
+			DocStatus:     "active",
+			Vec:           vec,
+		}
+	}
+
+	// Case A: 锁定 project-alpha 时，命中的资料只在 project-beta -> 保持 refused=true，并提示切换 project-beta
+	chunksA := []store.Chunk{
+		makeChunk(1, 10, "project-alpha", "项目 Alpha", "Alpha 指南", "与网文小说激励有关。", []float64{0, 1, 0}, false),
+		makeChunk(2, 20, "project-beta", "项目 Beta", "Beta 活动发奖", "新版活动发奖规则在结束后 T+5 个工作日内完成打款，服务默认端口 8082。", []float64{1, 0, 0}, false),
+	}
+	respA := askResponse{Answer: generate.RefuseAnswer, Citations: []citation{}, Refused: true}
+	h.enrichCrossSpaceRefusalHint("新版活动发奖规则是什么？", qVec, chunksA, "project-alpha", nil, &respA)
+	if !respA.Refused || len(respA.Citations) != 0 {
+		t.Fatalf("Case A 必须严格守住拒答隔离，不应夹带其他空间答案或引用：%+v", respA)
+	}
+	if respA.SuggestedProjectSlug != "project-beta" || !strings.Contains(respA.RefusalHint, "项目 Beta") {
+		t.Fatalf("Case A 期望提示切换至 project-beta，实际：%+v", respA)
+	}
+
+	// Case B: 锁定 project-alpha 时，project-beta 与 project-gamma 同时高分命中 -> 建议切回 auto 对照
+	chunksB := []store.Chunk{
+		makeChunk(1, 10, "project-alpha", "项目 Alpha", "Alpha 指南", "无关内容", []float64{0, 1, 0}, false),
+		makeChunk(2, 20, "project-beta", "项目 Beta", "Beta 默认端口", "服务默认监听端口为 8082", []float64{1, 0, 0}, false),
+		makeChunk(3, 30, "project-gamma", "项目 Gamma", "Gamma 默认端口", "服务默认监听端口为 8085", []float64{0.99, 0.05, 0}, false),
+	}
+	respB := askResponse{Answer: generate.RefuseAnswer, Citations: []citation{}, Refused: true}
+	h.enrichCrossSpaceRefusalHint("服务默认监听端口是多少？", qVec, chunksB, "project-alpha", nil, &respB)
+	if respB.SuggestedProjectSlug != "auto" || !strings.Contains(respB.RefusalHint, "自动识别") {
+		t.Fatalf("Case B 期望建议切回 auto 歧义对照，实际：%+v", respB)
+	}
+
+	// Case C: 其他空间命中项属于隐藏评测夹具（ProjectHidden=true）-> 绝不泄露提示
+	chunksC := []store.Chunk{
+		makeChunk(1, 10, "project-alpha", "项目 Alpha", "Alpha 指南", "无关内容", []float64{0, 1, 0}, false),
+		makeChunk(2, 99, "hidden-fixture", "隐藏评测夹具", "隐藏默认端口", "隐藏项目服务默认监听端口 8080", []float64{1, 0, 0}, true),
+	}
+	respC := askResponse{Answer: generate.RefuseAnswer, Citations: []citation{}, Refused: true}
+	h.enrichCrossSpaceRefusalHint("隐藏服务默认监听端口是多少？", qVec, chunksC, "project-alpha", nil, &respC)
+	if respC.SuggestedProjectSlug != "" || respC.RefusalHint != "" {
+		t.Fatalf("Case C 不应提示隐藏评测项目，实际：%+v", respC)
+	}
+
+	// Case D: 全库均无依据 -> 保持普通拒答，不给出建议按钮
+	chunksD := []store.Chunk{
+		makeChunk(1, 10, "project-alpha", "项目 Alpha", "Alpha 指南", "运营规则说明", []float64{0, 0, 1}, false),
+		makeChunk(2, 20, "project-beta", "项目 Beta", "Beta 指南", "版权结算规则", []float64{0, 1, 0}, false),
+	}
+	respD := askResponse{Answer: generate.RefuseAnswer, Citations: []citation{}, Refused: true}
+	h.enrichCrossSpaceRefusalHint("怎么做法式红酒炖牛肉？", qVec, chunksD, "project-alpha", nil, &respD)
+	if respD.SuggestedProjectSlug != "" || respD.RefusalHint != "" {
+		t.Fatalf("Case D 全库无依据不应给出跨空间建议，实际：%+v", respD)
+	}
+}

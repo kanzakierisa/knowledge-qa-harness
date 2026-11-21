@@ -14,6 +14,9 @@ import (
 
 	"github.com/gomutex/godocx"
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/encoding/traditionalchinese"
+	unicodeenc "golang.org/x/text/encoding/unicode"
 )
 
 func TestConvertMDAndTXT(t *testing.T) {
@@ -281,5 +284,62 @@ func TestConvertCorpusV2Formats(t *testing.T) {
 		if pieces := SplitMarkdownV3(md); len(pieces) == 0 {
 			t.Fatalf("%s SplitMarkdownV3 returned 0 chunks", tc.relPath)
 		}
+	}
+}
+
+func TestConvertNonUTF8TextEncodings(t *testing.T) {
+	conv := NewConverter(ConvertOptions{Engine: "native"})
+
+	// 1. GB18030 中文纯文本
+	gbkSrc := "活动结算说明：活动结束后五个工作日内完成核对与打款，禁止使用旧版端口。"
+	gbkBytes, err := simplifiedchinese.GB18030.NewEncoder().Bytes([]byte(gbkSrc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gbkOut, srcType, err := conv.Convert("promo_gbk.txt", gbkBytes)
+	if err != nil || srcType != "txt" {
+		t.Fatalf("Convert gbk failed: src=%q err=%v", srcType, err)
+	}
+	if strings.ContainsRune(gbkOut, '\uFFFD') || gbkOut != gbkSrc {
+		t.Fatalf("gbk decoded mismatch: got=%q want=%q", gbkOut, gbkSrc)
+	}
+
+	// 2. Big5 繁体台版纯文本（含 ASCII URL 与中文标点）
+	big5Src := "https://example.invalid/edition\n「第1章」這是繁體台版文本的編碼測試，請確認系統能正確識別並保留所有標點符號。"
+	big5Bytes, err := traditionalchinese.Big5.NewEncoder().Bytes([]byte(big5Src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	big5Out, srcType, err := conv.Convert("1-11台版.txt", big5Bytes)
+	if err != nil || srcType != "txt" {
+		t.Fatalf("Convert big5 failed: src=%q err=%v", srcType, err)
+	}
+	if strings.ContainsRune(big5Out, '\uFFFD') || big5Out != big5Src {
+		t.Fatalf("big5 decoded mismatch: got=%q want=%q", big5Out, big5Src)
+	}
+
+	// 3. UTF-16LE BOM / UTF-16BE BOM
+	u16Src := "宽字符编码兼容测试：支持带 BOM 的 UTF-16 文本。"
+	u16LEBytes, err := unicodeenc.UTF16(unicodeenc.LittleEndian, unicodeenc.UseBOM).NewEncoder().Bytes([]byte(u16Src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	u16LEOut, _, err := conv.Convert("win_unicode.txt", u16LEBytes)
+	if err != nil || u16LEOut != u16Src {
+		t.Fatalf("utf16le decoded mismatch: got=%q err=%v", u16LEOut, err)
+	}
+
+	u16BEBytes, err := unicodeenc.UTF16(unicodeenc.BigEndian, unicodeenc.UseBOM).NewEncoder().Bytes([]byte(u16Src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	u16BEOut, _, err := conv.Convert("win_unicode_be.txt", u16BEBytes)
+	if err != nil || u16BEOut != u16Src {
+		t.Fatalf("utf16be decoded mismatch: got=%q err=%v", u16BEOut, err)
+	}
+
+	// 4. 二进制控制字节拒绝
+	if _, _, err := conv.Convert("binary.txt", []byte{0x00, 0x01, 0x02, 0x03}); err == nil {
+		t.Fatal("expected binary nul bytes to fail")
 	}
 }
