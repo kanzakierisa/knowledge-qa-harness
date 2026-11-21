@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -51,13 +52,15 @@ type chatRequest struct {
 }
 
 type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role             string `json:"role"`
+	Content          string `json:"content"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type chatResponse struct {
 	Choices []struct {
-		Message chatMessage `json:"message"`
+		FinishReason string      `json:"finish_reason"`
+		Message      chatMessage `json:"message"`
 	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
@@ -73,71 +76,129 @@ func (e *httpStatusError) Error() string {
 	return fmt.Sprintf("LLM API 返回 %d：%s", e.statusCode, e.body)
 }
 
-const jsonModeMaxTokens = 2048
+const (
+	jsonModeMaxTokens          = 2048
+	reasoningJSONModeMaxTokens = 4096
+)
+
+var reasoningModelSubstrings = []string{
+	"deepseek-r1",
+	"deepseek-reasoner",
+	"deepseek-v4",
+	"qwen3",
+	"qwq",
+	"glm-5",
+	"kimi-k3",
+	"reasoner",
+	"thinking",
+}
+
+func isLikelyReasoningModel(model string) bool {
+	m := strings.ToLower(strings.TrimSpace(model))
+	if m == "" {
+		return false
+	}
+	for _, sub := range reasoningModelSubstrings {
+		if strings.Contains(m, sub) {
+			return true
+		}
+	}
+	base := m
+	if idx := strings.LastIndex(m, "/"); idx >= 0 {
+		base = m[idx+1:]
+	}
+	for _, p := range []string{"o1", "o3", "o4"} {
+		if base == p || strings.HasPrefix(base, p+"-") {
+			return true
+		}
+	}
+	return false
+}
+
+func jsonModeMaxTokensForModel(model string) int {
+	if raw := strings.TrimSpace(os.Getenv("LLM_JSON_MAX_TOKENS")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			return n
+		}
+	}
+	if isLikelyReasoningModel(model) {
+		return reasoningJSONModeMaxTokens
+	}
+	return jsonModeMaxTokens
+}
 
 // Chat 发送单轮 user 消息，返回助手回复文本。
 // Temperature 显式设为 0，保证引用标注与拒答判定在不同批次评测间可复现。
 func (c *ChatClient) Chat(userPrompt string) (string, error) {
-	return c.chatOnce(userPrompt, false)
+	ans, _, _, err := c.chatOnceMeta(userPrompt, false)
+	return ans, err
 }
 
 // chatJSON 优先附带 response_format={"type":"json_object"} 发起单轮 user 请求；
 // 若端点因不支持该参数返回 400 或返回空白内容，则自动回退到纯文本单轮请求。
 func (c *ChatClient) chatJSON(userPrompt string) (string, error) {
-	ans, err := c.chatOnce(userPrompt, true)
+	ans, finishReason, hasReasoning, err := c.chatOnceMeta(userPrompt, true)
 	if err != nil {
 		var statusErr *httpStatusError
 		if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusBadRequest {
 			log.Printf("[chat] JSON 模式返回 HTTP 400，自动回退纯文本请求：%s", statusErr.body)
-			return c.chatOnce(userPrompt, false)
+			ans2, _, _, err2 := c.chatOnceMeta(userPrompt, false)
+			return ans2, err2
 		}
 		return "", err
 	}
 	if strings.TrimSpace(ans) == "" {
-		log.Printf("[chat] JSON 模式返回空白内容，自动回退纯文本请求")
-		return c.chatOnce(userPrompt, false)
+		if finishReason == "length" || hasReasoning {
+			log.Printf("[chat] JSON 模式返回空白内容（model=%s finish_reason=%s max_tokens=%d has_reasoning=%v，可能因思考过程耗尽输出配额），自动回退纯文本请求；可通过 LLM_JSON_MAX_TOKENS 调大配额",
+				c.model, finishReason, jsonModeMaxTokensForModel(c.model), hasReasoning)
+		} else {
+			log.Printf("[chat] JSON 模式返回空白内容，自动回退纯文本请求")
+		}
+		ans2, _, _, err2 := c.chatOnceMeta(userPrompt, false)
+		return ans2, err2
 	}
 	return ans, nil
 }
 
-func (c *ChatClient) chatOnce(userPrompt string, jsonMode bool) (string, error) {
+func (c *ChatClient) chatOnceMeta(userPrompt string, jsonMode bool) (content string, finishReason string, hasReasoning bool, err error) {
 	reqPayload := chatRequest{
 		Model:       c.model,
 		Messages:    []chatMessage{{Role: "user", Content: userPrompt}},
 		Temperature: 0,
 	}
 	if jsonMode {
-		reqPayload.MaxTokens = jsonModeMaxTokens
+		reqPayload.MaxTokens = jsonModeMaxTokensForModel(c.model)
 		reqPayload.ResponseFormat = &responseFormat{Type: "json_object"}
 	}
 	reqBody, _ := json.Marshal(reqPayload)
 	req, err := http.NewRequest("POST", c.baseURL+"/chat/completions", bytes.NewReader(reqBody))
 	if err != nil {
-		return "", err
+		return "", "", false, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("LLM 请求失败：%w", err)
+		return "", "", false, fmt.Errorf("LLM 请求失败：%w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", &httpStatusError{statusCode: resp.StatusCode, body: string(raw)}
+		return "", "", false, &httpStatusError{statusCode: resp.StatusCode, body: string(raw)}
 	}
 	var cr chatResponse
 	if err := json.Unmarshal(raw, &cr); err != nil {
-		return "", fmt.Errorf("LLM 响应解析失败：%w", err)
+		return "", "", false, fmt.Errorf("LLM 响应解析失败：%w", err)
 	}
 	if cr.Error != nil {
-		return "", fmt.Errorf("LLM API 错误：%s", cr.Error.Message)
+		return "", "", false, fmt.Errorf("LLM API 错误：%s", cr.Error.Message)
 	}
 	if len(cr.Choices) == 0 {
-		return "", fmt.Errorf("LLM API 返回空 choices")
+		return "", "", false, fmt.Errorf("LLM API 返回空 choices")
 	}
-	return strings.TrimSpace(cr.Choices[0].Message.Content), nil
+	choice := cr.Choices[0]
+	return strings.TrimSpace(choice.Message.Content), strings.TrimSpace(choice.FinishReason), strings.TrimSpace(choice.Message.ReasoningContent) != "", nil
 }
 
 // ---------- 阶段 4：引用后校验 + 重试兜底 ----------

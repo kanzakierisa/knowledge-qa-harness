@@ -134,3 +134,21 @@
   1. **双端多编码自动识别解码**：在本地 Go `ingest/convert.go`（基于 `golang.org/x/text/encoding` 的 `simplifiedchinese`、`traditionalchinese`、`unicode` 解码器）与线上沙箱 `sandbox-api.js` 中统一改为按 **BOM → 严格 UTF-8 → 无 BOM UTF-16LE/BE 零字节特征 → `GB18030` 与 `Big5` 样本中文标点及简繁体高频字覆盖率打分择优** 顺序自动解码，并在 `\uFFFD` 损坏率超 15% 或出现非法 `\x00` 二进制字节时明确拒绝导入。
   2. **纯文本章节/自然段增强与前端保护**：在线演示版补充常见中文章节行（`第X章/卷/节`）识别与超 900 字长段按自然段拆分（上限 250 段并预缓存分词向量、原文预览上限 12 万字防浏览器卡死）。
 - **验证结果**：在 `ingest/convert_test.go` 新增 `TestConvertNonUTF8TextEncodings` 验证真实 **GB18030**、**Big5（含网址与繁体标点）**、**UTF-16LE/BE** 准确解码与二进制拒绝；网页沙箱经真实多编码 `.txt` 上传、原文预览与 `[1]` 溯源回答验证无任何 `` 乱码。
+
+---
+
+## 跨模型控制变量横评与思考模型配额优化（6 款主流国模 × 91 题）
+
+在冻结 `text-embedding-v3` 检索证据与同一套 `generate.ChatClient.GenerateAnswer` 校验闭环的前提下，我对来自 4 家国内厂商的 6 款主流大模型（另有 `MiniMax/MiniMax-M3` 探测返回 `The product is not activated`，未纳入对比）完成了全量 **91 题**（`base52` 52 题 + `holdout` 39 题，共 `88` 题进入 LLM、3 题由 `< 0.35` 阈值直接拦截）控制变量实验，完整分析与 Bad Case 样本见 [model_benchmark.md](model_benchmark.md)。
+
+| 模型 | 厂商 / 类型 | 可答成功率 (63题) | 误拒数 | 引用合规率 | 拒答准确率 (28题) | 重试 / 拦截 / 降级 | 全量加权均延 (P50 / P95) | Completion (Reasoning) Tokens |
+|---|---|---|---|---|---|---|---|---|
+| **`deepseek-chat`** | DeepSeek / 非思考高速主力 | **100.00%** (63/63) | **0** | **100.00%** | **100.00%** | 0 / 0 / 0 | **837.4 ms** (770 / 1,454 ms) | **6,944** (0) |
+| **`qwen3.8-max`** | 阿里云通义 / 深度思考旗舰 | **100.00%** (63/63) | **0** | **100.00%** | **100.00%** | 0 / 0 / 0 | 13,302.3 ms (9,487 / 34,590 ms) | 49,463 (42,032) |
+| **`kimi-k3.1-pro`** | 月之暗面 / 深度思考旗舰 | **100.00%** (63/63) | **0** | **100.00%** | **100.00%** | 1 / 0 / 0 | 11,967.9 ms (10,486 / 27,148 ms) | 51,012 (41,495) |
+| **`deepseek-v4-pro`** | DeepSeek / 新一代思考旗舰 | **100.00%** (63/63) | **0** | **100.00%** | **100.00%** | 1 / 0 / 1 | 9,387.4 ms (6,696 / 25,207 ms) | 30,601 (23,814) |
+| **`glm-5.3`** | 智谱 AI / 深度思考旗舰 | 96.83% (61/63) | 2 | **100.00%** | **100.00%** | 4 / 2 / 0 | 5,805.7 ms (4,156 / 14,069 ms) | 52,854 (43,016) |
+| **`qwen-max`** | 阿里云通义 / 非思考稳定旗舰 | 82.54% (52/63) | 11 | **100.00%** | **100.00%** | 18 / 10 / 0 | 3,332.9 ms (2,368 / 9,575 ms) | 9,339 (0) |
+
+- **Bad Case 归因与护栏效果**：所有模型在 `near_miss_refusal`（13/13）、`paraphrase_correction`（11/11）和 `project_governance`（8/8）上全部满分，差异集中在 `cross_para_compare`（7 题跨段落多方法对比题）。`qwen-max` 共触发 18 次自动重试，其中 7 题纠偏恢复、10 题因两次未通过 Quote-First / 句级引用硬校验（`validation_failed=true`）被 Harness 安全拦截拒答，仅 `q#8` 为模型自身保守拒答；`glm-5.3` 触发 4 次重试、`q#9` 与 `q#82` 两次校验失败被拦截；`kimi-k3.1-pro` 仅 `q#9` 重试 1 次即恢复。全过程无一例未引用或编造输出被放行。
+- **思考模型 `max_tokens` 自适应优化落地**：`deepseek-v4-pro` 在 `holdout q#81` 因思考过程消耗达 `4,095` reasoning tokens（跨 3 次 HTTP 请求累计 `4,532` completion tokens）触及此前统一的 `jsonModeMaxTokens = 2048` 上限，导致首次 JSON 模式返回空内容并触发 `chatJSON` 纯文本降级与重试（单题耗时 `103,274 ms`，将 `holdout` P95 拉升至 `34,735 ms`）。现已在 [generate/llm.go](../generate/llm.go) 新增 `isLikelyReasoningModel` 与 `jsonModeMaxTokensForModel`，为思考模型自动将结构化 `max_tokens` 放宽至 `reasoningJSONModeMaxTokens = 4096`（保留非思考模型 `2048`），提供环境变量 `LLM_JSON_MAX_TOKENS` 覆盖与 `finish_reason="length"`/`reasoning_content` 截断诊断日志，并在 [generate/prompt_v2_test.go](../generate/prompt_v2_test.go) 通过 `TestJSONModeMaxTokensAdaptiveForReasoningModels` 验证闭环。

@@ -11,7 +11,7 @@
 
 - **在线可交互 Demo（免配置即点即用）**：[https://kanzakierisa.github.io/knowledge-qa-harness/](https://kanzakierisa.github.io/knowledge-qa-harness/)（纯前端模拟 4 个内容消费空间与核心工作流，完整功能见下方源码部署或运行包）
 - **3 分钟演示视频（带配音与字幕）**：[demo_video_voiced.mp4](https://github.com/kanzakierisa/knowledge-qa-harness/releases/download/stage13-delivered/demo_video_voiced.mp4) · 配套演示脚本 [docs/v2_demo_script.md](docs/v2_demo_script.md)
-- **离线评测实验详录**：V1 迭代归因 [docs/iterations.md](docs/iterations.md) · V2/V3 对抗盲测与回滚记录 [docs/v2_iterations.md](docs/v2_iterations.md)
+- **离线评测实验详录**：V1 迭代归因 [docs/iterations.md](docs/iterations.md) · V2/V3 对抗盲测与回滚记录 [docs/v2_iterations.md](docs/v2_iterations.md) · 6 款主流国产大模型控制变量横评 [docs/model_benchmark.md](docs/model_benchmark.md)
 - **Windows 免环境运行包**：可前往仓库 [Releases 页面](https://github.com/kanzakierisa/knowledge-qa-harness/releases/tag/stage13-delivered) 下载 `knowledge-qa-release.zip`，解压后无需安装 Go 环境即可双击脚本启动
 
 ---
@@ -191,6 +191,23 @@ flowchart TD
 |---|---|---|---|
 | **1. 切过左侧空间后，点「新对话」或首页预设问题仍触发拒答** | `selectedProjectSlug` 未随新对话/全局示例重置，且跨空间严格隔离拒答时缺少范围原因引导，用户分不清是「真没依据」还是「范围锁在别的项目」 | ① 点「新对话」或全局示例问题自动解除旧范围锁定、恢复「自动识别」；② 保留严格物理隔离底线，仅对线上锁定范围触发拒答时检测可见其他空间，按需返回 `refusal_hint` 并展示 **一键切换对应空间/自动识别重问** 按钮 | Go 单测 `TestCrossSpaceRefusalHintPreservesIsolation`（4 组边界含隐藏夹具隔离）+ Playwright 跨区切换验证通过 |
 | **2. 上传 Windows / 台版非 UTF-8 `.txt` 文件出现 `` 乱码或被拒传** | 老式纯文本常为 **GBK / GB18030**、**Big5（繁体）** 或 **UTF-16LE/BE**，前端按 UTF-8 强读产生乱码，本地 Go 端则直接报错拒收；同时无 `#` 标题 `.txt` 未按章节拆分 | ① 在 Go `ingest/convert.go`（基于 `golang.org/x/text`）与网页端统一实现 **BOM → UTF-8 → UTF-16 → GB18030 vs Big5 中文打分择优** 自动识别解码，并拦截真正损坏的二进制；② 网页端追加中文章节/自然段自动切分与百段级保护 | Go 单测 `TestConvertNonUTF8TextEncodings` + Playwright 真实 GB18030 / Big5 / UTF-16LE `.txt` 上传预览与问答 0 乱码通过 |
+
+### 4. 主流国产大模型控制变量横评（6 模型 × 91 题）
+
+为了避免凭体感选模型，我冻结了 `text-embedding-v3` 检索证据输入与同一套生产 Prompt / Quote-First 句级硬校验逻辑，在全量 **91 题**（`base52` 52 题 + `holdout` 39 题对抗盲测；含 63 道可答题与 28 道应拒答题）上对 4 家主流国内厂商的 6 款模型进行了横向对比（完整拆解与 Bad Case 归因见 [docs/model_benchmark.md](docs/model_benchmark.md)）：
+
+| 模型 | 可答成功率 (63题) | 误拒数 | 引用合规率 | 拒答准确率 (28题) | 重试 / 校验拦截 | 全量加权均延 | Completion Tokens |
+|---|---|---|---|---|---|---|---|
+| **`deepseek-chat`** | **100.00% (63/63)** | **0** | **100.00%** | **100.00%** | 0 / 0 | **837.4 ms** | **6,944** |
+| **`qwen3.8-max`** | **100.00% (63/63)** | **0** | **100.00%** | **100.00%** | 0 / 0 | 13,302.3 ms | 49,463 |
+| **`kimi-k3.1-pro`** | **100.00% (63/63)** | **0** | **100.00%** | **100.00%** | 1 / 0 | 11,967.9 ms | 51,012 |
+| **`deepseek-v4-pro`** | **100.00% (63/63)** | **0** | **100.00%** | **100.00%** | 1 / 0 | 9,387.4 ms | 30,601 |
+| **`glm-5.3`** | 96.83% (61/63) | 2 | **100.00%** | **100.00%** | 4 / 2 | 5,805.7 ms | 52,854 |
+| **`qwen-max`** | 82.54% (52/63) | 11 | **100.00%** | **100.00%** | 18 / 10 | 3,332.9 ms | 9,339 |
+
+- **Harness 硬护栏实现 0 幻觉放行**：6 款模型无论指令遵循强弱，引用合规率与拒答准确率全部守住 **100.00%**；模型差异仅被隔离到重试成本与保守拦截上（全部 Holdout 差异均来自 7 道跨段落多方法对比题 `cross_para_compare`，其余三类对抗维度 6 款模型全部满分）。
+- **线上高并发路由结论**：在精确切块召回与代码级校验证明可托底的前提下，非思考高速主力 `deepseek-chat` 以 `837.4 ms` 均延与 `6,944` tokens（相比思考旗舰耗时快 `11–16` 倍、生成 tokens 仅为 `1/4.4 ~ 1/7.6`）跑满全部指标，适合作为线上默认路由；`kimi-k3.1-pro` 与 `qwen3.8-max` 更适合复杂跨段离线质检。
+- **反哺落地的思考模型配额优化**：横评中 `deepseek-v4-pro` 在 `holdout q#81` 触发了 DashScope 思考 token 挤占默认 `2048` `max_tokens` 导致的空响应降级（单题延迟拉高至 `103.3s`）。我已直接在 [generate/llm.go](generate/llm.go) 中为常见思考模型族自动放宽结构化输出配额至 `4096`，增加 `LLM_JSON_MAX_TOKENS` 覆盖开关与 `finish_reason="length"` 截断诊断日志，并补齐单元测试。
 
 ---
 

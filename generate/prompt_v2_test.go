@@ -1,7 +1,9 @@
 package generate
 
 import (
+	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -230,6 +232,102 @@ func TestGenerateJSONModeHTTP400AndBlankFallback(t *testing.T) {
 		ans, retried, ok, err := c.GenerateAnswer("今天天气", top)
 		if err != nil || retried || !ok || ans != RefuseAnswer || calls != 2 {
 			t.Fatalf("blank fallback failed: ans=%q retried=%v ok=%v calls=%d err=%v", ans, retried, ok, calls, err)
+		}
+	})
+}
+
+func TestJSONModeMaxTokensAdaptiveForReasoningModels(t *testing.T) {
+	t.Run("non-reasoning models default to 2048", func(t *testing.T) {
+		t.Setenv("LLM_JSON_MAX_TOKENS", "")
+		for _, model := range []string{"deepseek-chat", "qwen-max", "m"} {
+			if got := jsonModeMaxTokensForModel(model); got != 2048 {
+				t.Fatalf("model %q expected 2048, got %d", model, got)
+			}
+		}
+	})
+
+	t.Run("reasoning models default to 4096", func(t *testing.T) {
+		t.Setenv("LLM_JSON_MAX_TOKENS", "")
+		for _, model := range []string{"deepseek-v4-pro", "deepseek-reasoner", "qwen3.8-max", "kimi-k3.1-pro", "glm-5.3", "o3-mini"} {
+			if got := jsonModeMaxTokensForModel(model); got != 4096 {
+				t.Fatalf("reasoning model %q expected 4096, got %d", model, got)
+			}
+		}
+	})
+
+	t.Run("LLM_JSON_MAX_TOKENS overrides valid values and ignores invalid ones", func(t *testing.T) {
+		t.Setenv("LLM_JSON_MAX_TOKENS", "6144")
+		if got := jsonModeMaxTokensForModel("deepseek-chat"); got != 6144 {
+			t.Fatalf("override non-reasoning got %d, want 6144", got)
+		}
+		if got := jsonModeMaxTokensForModel("deepseek-v4-pro"); got != 6144 {
+			t.Fatalf("override reasoning got %d, want 6144", got)
+		}
+		for _, invalid := range []string{"0", "-5", "abc"} {
+			t.Setenv("LLM_JSON_MAX_TOKENS", invalid)
+			if got := jsonModeMaxTokensForModel("deepseek-chat"); got != 2048 {
+				t.Fatalf("invalid env %q for deepseek-chat got %d, want 2048", invalid, got)
+			}
+			if got := jsonModeMaxTokensForModel("deepseek-v4-pro"); got != 4096 {
+				t.Fatalf("invalid env %q for deepseek-v4-pro got %d, want 4096", invalid, got)
+			}
+		}
+	})
+
+	t.Run("length truncation with reasoning_content triggers diagnostic fallback", func(t *testing.T) {
+		t.Setenv("LLM_JSON_MAX_TOKENS", "")
+		var seenMaxTokens []int
+		calls := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls++
+			var req chatRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Fatalf("decode req: %v", err)
+			}
+			seenMaxTokens = append(seenMaxTokens, req.MaxTokens)
+			w.Header().Set("Content-Type", "application/json")
+			if req.ResponseFormat != nil {
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"choices": []map[string]any{{
+						"finish_reason": "length",
+						"message": map[string]string{
+							"role":              "assistant",
+							"content":           "",
+							"reasoning_content": "thinking exhausted budget before emitting JSON body...",
+						},
+					}},
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"choices": []map[string]any{{
+					"finish_reason": "stop",
+					"message": map[string]string{
+						"role":    "assistant",
+						"content": "路由组用 Group [1]。",
+					},
+				}},
+			})
+		}))
+		defer srv.Close()
+
+		var logBuf bytes.Buffer
+		origWriter := log.Writer()
+		log.SetOutput(&logBuf)
+		defer log.SetOutput(origWriter)
+
+		top := []retrieve.MergedChunk{{Chunk: store.Chunk{ID: 1, Content: "路由组用 Group"}}}
+		c := NewChatClient(srv.URL, "k", "deepseek-v4-pro")
+		ans, retried, ok, err := c.GenerateAnswer("怎么建路由组", top)
+		if err != nil || retried || !ok || ans != "路由组用 Group [1]。" || calls != 2 {
+			t.Fatalf("truncation fallback mismatch: ans=%q retried=%v ok=%v calls=%d err=%v", ans, retried, ok, calls, err)
+		}
+		if len(seenMaxTokens) != 2 || seenMaxTokens[0] != 4096 || seenMaxTokens[1] != 0 {
+			t.Fatalf("expected [4096 0] max_tokens across JSON->plaintext fallback, got %v", seenMaxTokens)
+		}
+		logText := logBuf.String()
+		if !strings.Contains(logText, "finish_reason=length") || !strings.Contains(logText, "max_tokens=4096") {
+			t.Fatalf("expected truncation diagnostic log, got %q", logText)
 		}
 	})
 }
