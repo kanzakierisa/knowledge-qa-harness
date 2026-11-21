@@ -14,9 +14,11 @@
    - 注：原有 `go-gin`（39 篇 / 179 段）以及对抗盲测夹具 `project-alpha` / `project-beta` 均通过 `is_hidden=1` 默认隐藏保留在后台，仅用于 `base52` 与 `holdout` 离线量化回归，不干扰日常界面。
 2. **启动服务**：
    ```powershell
-   # 方式一（全配置直接启动）
-   .\start.ps1
-   # 或使用一键脚本 / 网页引导配置模式：
+   # 方式一（全配置快速启动，需先配置 .env 中的 MYSQL_DSN 与模型参数）
+   .\scripts\quickstart.ps1 -Seed
+   # 或直接使用 Go 命令启动：
+   go run .
+   # 方式二（若暂未在 .env 填写模型 Key，可开启网页引导配置）：
    .\scripts\quickstart.ps1 -SetupUI
    ```
 3. **浏览器窗口**：打开 `http://localhost:8080`，确认页面极简干净（中栏顶部展示真实客观的「当前会话」统计栏：`引用准确率：-- · 反馈可用率：-- · 拒答：0 次`）。
